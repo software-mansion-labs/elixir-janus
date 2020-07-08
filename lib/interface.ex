@@ -1,5 +1,5 @@
-defmodule ElixirJanus.Interface do
-  alias ElixirJanus.Connection
+defmodule Janus.Interface do
+  alias Janus.Connection
 
   @default_timeout 5000
 
@@ -15,7 +15,7 @@ defmodule ElixirJanus.Interface do
 
   ## Arguments
 
-  * `connection` - a PID of the `ElixirJanus.Connection` process,
+  * `connection` - a PID of the `Janus.Connection` process,
   * `timeout` - a timeout for the call.
 
   ## Return values

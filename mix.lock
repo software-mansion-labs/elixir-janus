@@ -1,3 +1,4 @@
 %{
   "bunch": {:hex, :bunch, "1.3.0", "51b4423088b7fb9e21eae6d6bc5e5d219d955ea5556fbd6130bfb6213df4be32", [:mix], [], "hexpm", "9ad233a2bacc0dae8aa6553a9b9057f27446443b1c5903c3479b6f9f3820ce2d"},
+  "ex2ms": {:hex, :ex2ms, "1.6.0", "f39bbd9ff1b0f27b3f707bab2d167066dd8965e7df1149b962d94c74615d0e09", [:mix], [], "hexpm", "0d1ab5e08421af5cd69146efb408dbb1ff77f38a2f4df5f086f2512dc8cf65bf"},
 }

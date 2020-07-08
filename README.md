@@ -1,3 +1,3 @@
-# ElixirJanus
+# Janus
 
 **TODO: Add description**

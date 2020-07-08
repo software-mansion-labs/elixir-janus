@@ -1,4 +1,4 @@
-defmodule ElixirJanus.Connection do
+defmodule Janus.Connection do
   use GenServer
   use Bunch
   # use Bitwise
@@ -7,8 +7,6 @@ defmodule ElixirJanus.Connection do
 
   @default_timeout 5000
   @cleanup_interval 60000
-
-  @compile {:parse_transform, :ms_transform}
 
   Record.defrecordp(:state,
     transport_module: nil,
@@ -160,8 +158,13 @@ defmodule ElixirJanus.Connection do
 
   @impl true
   def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
+    require Ex2ms
     now = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
-    match_spec = :ets.fun2ms(fn {_transaction, _from, expires_at} -> expires_at > now end)
+
+    match_spec =
+      Ex2ms.fun do
+        {_transaction, _from, expires_at} -> expires_at > ^now
+      end
 
     case :ets.select_delete(pending_calls_table, match_spec) do
       0 ->
@@ -293,7 +296,7 @@ defmodule ElixirJanus.Connection do
           {:ok, s}
         end
 
-      nil ->
+      [] ->
         Logger.warn(
           "[#{__MODULE__} #{inspect(self())}] Received error reply to the unknown call: transaction = #{
             inspect(transaction)

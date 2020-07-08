@@ -1,5 +1,5 @@
-defmodule ElixirJanus.Handler do
-  alias Wembrane.Gateway.Interface
+defmodule Janus.Handler do
+  alias Janus.Interface
 
   @type state :: any
 
@@ -33,6 +33,14 @@ defmodule ElixirJanus.Handler do
               DateTime.t(),
               state
             ) :: {:noreply, state}
+  @callback handle_webrtc_down(
+              Interface.session_id(),
+              Interface.plugin_handle_id(),
+              Interface.emitter(),
+              Interface.opaque_id(),
+              DateTime.t(),
+              state
+            ) :: {:noreply, state}
   @callback handle_audio_receiving(
               Interface.session_id(),
               Interface.plugin_handle_id(),
@@ -54,7 +62,7 @@ defmodule ElixirJanus.Handler do
 
   defmacro __using__(_) do
     quote location: :keep do
-      @behaviour Wembrane.Gateway.Handler
+      @behaviour Janus.Handler
 
       # Default implementations
 

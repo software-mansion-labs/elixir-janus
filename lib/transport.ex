@@ -1,4 +1,4 @@
-defmodule ElixirJanus.Transport do
+defmodule Janus.Transport do
   @type reason :: any
   @type state :: any
   @type payload :: map
