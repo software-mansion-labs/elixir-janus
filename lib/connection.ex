@@ -228,40 +228,23 @@ defmodule Janus.Connection do
   # Handles payload which is a success response to the call
   defp handle_payload(
          %{"janus" => "success", "transaction" => transaction, "data" => data},
-         state(pending_calls_table: pending_calls_table) = s
+         state
        ) do
-    case :ets.lookup(pending_calls_table, transaction) do
-      [{_transaction, from, expires_at}] ->
-        if DateTime.utc_now() |> DateTime.to_unix(:millisecond) > expires_at do
-          Logger.warn(
-            "[#{__MODULE__} #{inspect(self())}] Received OK reply to the outdated call: transaction = #{
-              inspect(transaction)
-            }, data = #{inspect(data)}"
-          )
+    handle_successful_payload(transaction, data, state)
+  end
 
-          :ets.delete(pending_calls_table, transaction)
-          {:ok, s}
-        else
-          Logger.debug(
-            "[#{__MODULE__} #{inspect(self())}] Call OK: transaction = #{inspect(transaction)}, data = #{
-              inspect(data)
-            }"
-          )
-
-          GenServer.reply(from, {:ok, data})
-          :ets.delete(pending_calls_table, transaction)
-          {:ok, s}
-        end
-
-      [] ->
-        Logger.warn(
-          "[#{__MODULE__} #{inspect(self())}] Received OK reply to the unknown call: transaction = #{
-            inspect(transaction)
-          }, data = #{inspect(data)}"
-        )
-
-        {:ok, s}
-    end
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "plugindata" => %{
+             "data" => data,
+             "plugin" => _plugin
+           }
+         },
+         state
+       ) do
+    handle_successful_payload(transaction, data, state)
   end
 
   # Handles payload which is an error response to the call
@@ -509,5 +492,42 @@ defmodule Janus.Connection do
     )
 
     {:ok, s}
+  end
+
+  defp handle_successful_payload(
+         transaction,
+         data,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    case :ets.lookup(pending_calls_table, transaction) do
+      [{_transaction, from, expires_at}] ->
+        if DateTime.utc_now() |> DateTime.to_unix(:millisecond) > expires_at do
+          Logger.warn(
+            "[#{__MODULE__} #{inspect(self())}] Received OK reply to the outdated call: transaction = #{
+              inspect(transaction)
+            }, data = #{inspect(data)}"
+          )
+
+          :ets.delete(pending_calls_table, transaction)
+        else
+          Logger.debug(
+            "[#{__MODULE__} #{inspect(self())}] Call OK: transaction = #{inspect(transaction)}, data = #{
+              inspect(data)
+            }"
+          )
+
+          GenServer.reply(from, {:ok, data})
+          :ets.delete(pending_calls_table, transaction)
+        end
+
+      [] ->
+        Logger.warn(
+          "[#{__MODULE__} #{inspect(self())}] Received OK reply to the unknown call: transaction = #{
+            inspect(transaction)
+          }, data = #{inspect(data)}"
+        )
+    end
+
+    {:ok, state}
   end
 end
