@@ -76,7 +76,7 @@ defmodule Janus.Connection do
   * `{:gateway, code, info}` - it means that the call itself succeded but the
     gateway returned an error of the given code and info.
   """
-  @spec call(pid, map, timeout) :: {:ok, any} | {:error, any}
+  @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
   def call(server, payload, timeout \\ @default_timeout) do
     GenServer.call(server, {:call, payload, timeout}, timeout)
   end
@@ -456,7 +456,7 @@ defmodule Janus.Connection do
   # Handles event without subtype FIXME
   defp handle_payload(
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
-         state(handler_module: handler_module, handler_state: handler_state) = s
+         state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
     Logger.debug(
       "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
