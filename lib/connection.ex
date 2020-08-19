@@ -5,6 +5,8 @@ defmodule Janus.Connection do
   require Record
   require Logger
 
+  alias Janus.API.{ResponseHandler, Transaction}
+
   @default_timeout 5000
   @cleanup_interval 60000
 
@@ -95,7 +97,7 @@ defmodule Janus.Connection do
           connect: {:ok, transport_state} <- transport_module.connect(transport_args) do
       # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
       # See https://www.phoenixframework.org/blog/the-road-to-2-million-websocket-connections
-      pending_calls_table = :ets.new(:pending_calls, [:duplicate_bag, :private])
+      pending_calls_table = Transaction.init_transaction_call_table()
 
       Process.send_after(self(), :cleanup, @cleanup_interval)
 
@@ -126,30 +128,23 @@ defmodule Janus.Connection do
           pending_calls_table: pending_calls_table
         ) = s
       ) do
-    transaction = generate_transaction!(pending_calls_table)
+    transaction = Transaction.generate_transaction!(pending_calls_table)
 
-    Logger.debug(
-      "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{
-        inspect(payload)
-      }"
-    )
+    "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{
+      inspect(payload)
+    }"
+    |> Logger.debug()
 
     payload_with_transaction = Map.put(payload, :transaction, transaction)
 
     case transport_module.send(payload_with_transaction, timeout, transport_state) do
       {:ok, new_transport_state} ->
-        expires_at =
-          DateTime.utc_now()
-          |> DateTime.add(timeout, :millisecond)
-          |> DateTime.to_unix(:millisecond)
-
-        :ets.insert(pending_calls_table, {transaction, from, expires_at})
+        Transaction.insert_transaction(pending_calls_table, transaction, from, timeout)
         {:noreply, state(s, transport_state: new_transport_state)}
 
       {:error, reason} ->
-        Logger.error(
-          "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
-        )
+        "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
+        |> Logger.error()
 
         # TODO check if this is correct return value
         {:stop, {:call, reason}, s}
@@ -158,24 +153,7 @@ defmodule Janus.Connection do
 
   @impl true
   def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
-    require Ex2ms
-    now = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
-
-    match_spec =
-      Ex2ms.fun do
-        {_transaction, _from, expires_at} -> expires_at > ^now
-      end
-
-    case :ets.select_delete(pending_calls_table, match_spec) do
-      0 ->
-        Logger.debug("[#{__MODULE__} #{inspect(self())}] Cleanup: no outdated transactions found")
-
-      count ->
-        Logger.debug(
-          "[#{__MODULE__} #{inspect(self())}] Cleanup: cleaned up #{count} outdated transaction(s)"
-        )
-    end
-
+    Transaction.cleanup_old_transactions(pending_calls_table)
     Process.send_after(self(), :cleanup, @cleanup_interval)
     {:noreply, s}
   end
@@ -189,9 +167,8 @@ defmodule Janus.Connection do
         {:noreply, state(s, transport_state: new_transport_state)}
 
       {:ok, payload, new_transport_state} ->
-        Logger.debug(
-          "[#{__MODULE__} #{inspect(self())}] Received payload: payload = #{inspect(payload)}"
-        )
+        "[#{__MODULE__} #{inspect(self())}] Received payload: payload = #{inspect(payload)}"
+        |> Logger.debug()
 
         case handle_payload(payload, s) do
           {:ok, new_state} ->
@@ -199,11 +176,10 @@ defmodule Janus.Connection do
         end
 
       {:error, reason, new_transport_state} ->
-        Logger.error(
-          "[#{__MODULE__} #{inspect(self())}] Transport handle info error: reason = #{
-            inspect(reason)
-          }"
-        )
+        "[#{__MODULE__} #{inspect(self())}] Transport handle info error: reason = #{
+          inspect(reason)
+        }"
+        |> Logger.error()
 
         # TODO check if this is correct return value
         {:stop, {:transport_handle_info, reason}, state(s, transport_state: new_transport_state)}
@@ -212,39 +188,14 @@ defmodule Janus.Connection do
 
   # Helpers
 
-  # Generates a transaction ID for the payload and ensures that it is unused
-  defp generate_transaction!(pending_calls_table) do
-    transaction = :crypto.strong_rand_bytes(32) |> Base.encode64()
-
-    case :ets.lookup(pending_calls_table, transaction) do
-      [] ->
-        transaction
-
-      _ ->
-        generate_transaction!(pending_calls_table)
-    end
-  end
-
   # Handles payload which is a success response to the call
   defp handle_payload(
-         %{"janus" => "success", "transaction" => transaction, "data" => data},
-         state
+         %{"janus" => "success", "transaction" => transaction} = response,
+         state(pending_calls_table: pending_calls_table) = state
        ) do
-    handle_successful_payload(transaction, data, state)
-  end
-
-  defp handle_payload(
-         %{
-           "janus" => "success",
-           "transaction" => transaction,
-           "plugindata" => %{
-             "data" => data,
-             "plugin" => _plugin
-           }
-         },
-         state
-       ) do
-    handle_successful_payload(transaction, data, state)
+    data = response["data"] || response["plugindata"]["data"]
+    ResponseHandler.handle_response({:ok, data}, transaction, pending_calls_table)
+    {:ok, state}
   end
 
   # Handles payload which is an error response to the call
@@ -254,40 +205,15 @@ defmodule Janus.Connection do
            "transaction" => transaction,
            "error" => %{"code" => code, "reason" => reason}
          },
-         state(pending_calls_table: pending_calls_table) = s
+         state(pending_calls_table: pending_calls_table) = state
        ) do
-    case :ets.lookup(pending_calls_table, transaction) do
-      [{_transaction, from, expires_at}] ->
-        if DateTime.utc_now() |> DateTime.to_unix(:millisecond) > expires_at do
-          Logger.warn(
-            "[#{__MODULE__} #{inspect(self())}] Received error reply to the outdated call: transaction = #{
-              inspect(transaction)
-            }, code = #{inspect(code)}, reason = #{inspect(reason)}"
-          )
+    ResponseHandler.handle_response(
+      {:error, {:gateway, code, reason}},
+      transaction,
+      pending_calls_table
+    )
 
-          :ets.delete(pending_calls_table, transaction)
-          {:ok, s}
-        else
-          Logger.warn(
-            "[#{__MODULE__} #{inspect(self())}] Call error: transaction = #{inspect(transaction)}, code = #{
-              inspect(code)
-            }, reason = #{inspect(reason)}"
-          )
-
-          GenServer.reply(from, {:error, {:gateway, code, reason}})
-          :ets.delete(pending_calls_table, transaction)
-          {:ok, s}
-        end
-
-      [] ->
-        Logger.warn(
-          "[#{__MODULE__} #{inspect(self())}] Received error reply to the unknown call: transaction = #{
-            inspect(transaction)
-          }, code = #{inspect(code)}, reason = #{inspect(reason)}"
-        )
-
-        {:ok, s}
-    end
+    {:ok, state}
   end
 
   # Handles notification about session timeout
@@ -308,11 +234,10 @@ defmodule Janus.Connection do
          %{"janus" => "detached", "session_id" => session_id, "sender" => sender},
          state(handler_module: handler_module, handler_state: handler_state) = s
        ) do
-    Logger.info(
-      "[#{__MODULE__} #{inspect(self())}] Detached: session_id = #{inspect(session_id)}, sender = #{
-        inspect(sender)
-      }"
-    )
+    "[#{__MODULE__} #{inspect(self())}] Detached: session_id = #{inspect(session_id)}, sender = #{
+      inspect(sender)
+    }"
+    |> Logger.info()
 
     case handler_module.handle_detached(session_id, sender, handler_state) do
       {:noreply, new_handler_state} ->
@@ -458,11 +383,10 @@ defmodule Janus.Connection do
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
          state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
-    Logger.debug(
-      "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
-        inspect(event)
-      }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
-    )
+    "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
+      inspect(event)
+    }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
+    |> Logger.debug()
 
     {:ok, s}
     # case handler_module.handle_detached(session_id, sender, handler_state) do
@@ -485,49 +409,9 @@ defmodule Janus.Connection do
 
   # Catch-all
   defp handle_payload(payload, s) do
-    Logger.warn(
-      "[#{__MODULE__} #{inspect(self())}] Received unhandled payload: payload = #{
-        inspect(payload)
-      }"
-    )
+    "[#{__MODULE__} #{inspect(self())}] Received unhandled payload: payload = #{inspect(payload)}"
+    |> Logger.warn()
 
     {:ok, s}
-  end
-
-  defp handle_successful_payload(
-         transaction,
-         data,
-         state(pending_calls_table: pending_calls_table) = state
-       ) do
-    case :ets.lookup(pending_calls_table, transaction) do
-      [{_transaction, from, expires_at}] ->
-        if DateTime.utc_now() |> DateTime.to_unix(:millisecond) > expires_at do
-          Logger.warn(
-            "[#{__MODULE__} #{inspect(self())}] Received OK reply to the outdated call: transaction = #{
-              inspect(transaction)
-            }, data = #{inspect(data)}"
-          )
-
-          :ets.delete(pending_calls_table, transaction)
-        else
-          Logger.debug(
-            "[#{__MODULE__} #{inspect(self())}] Call OK: transaction = #{inspect(transaction)}, data = #{
-              inspect(data)
-            }"
-          )
-
-          GenServer.reply(from, {:ok, data})
-          :ets.delete(pending_calls_table, transaction)
-        end
-
-      [] ->
-        Logger.warn(
-          "[#{__MODULE__} #{inspect(self())}] Received OK reply to the unknown call: transaction = #{
-            inspect(transaction)
-          }, data = #{inspect(data)}"
-        )
-    end
-
-    {:ok, state}
   end
 end
