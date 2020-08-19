@@ -21,6 +21,7 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
+  @spec insert_transaction(:ets.tab(), binary, GenServer.from(), integer) :: true
   def insert_transaction(pending_calls_table, transaction, from, timeout) do
     expires_at =
       DateTime.utc_now()

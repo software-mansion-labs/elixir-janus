@@ -13,12 +13,16 @@ defmodule Janus.Connection.ResponseHandler do
 
       {:error, :outdated} ->
         :ets.delete(pending_calls_table, transaction)
+
+      _ ->
+        # NOOP
+        nil
     end
 
     call_result =
       case response do
         {:ok, _} -> "OK"
-        {:error, _} -> "ERROR"
+        {:error, _, _} -> "ERROR"
       end
 
     log_transaction_status(transaction_status, transaction, response, call_result)
