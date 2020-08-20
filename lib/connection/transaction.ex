@@ -48,7 +48,7 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  @spec cleanup_old_transactions(:ets.tab()) :: :ok
+  @spec cleanup_old_transactions(:ets.tab()) :: boolean
   def cleanup_old_transactions(pending_calls_table) do
     require Ex2ms
     now = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
@@ -61,10 +61,13 @@ defmodule Janus.Connection.Transaction do
     case :ets.select_delete(pending_calls_table, match_spec) do
       0 ->
         Logger.debug("[#{__MODULE__} #{inspect(self())}] Cleanup: no outdated transactions found")
+        false
 
       count ->
         "[#{__MODULE__} #{inspect(self())}] Cleanup: cleaned up #{count} outdated transaction(s)"
         |> Logger.debug()
+
+        true
     end
   end
 end
