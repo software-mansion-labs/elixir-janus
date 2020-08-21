@@ -82,11 +82,19 @@ defmodule Janus.Connection do
   end
 
   @doc """
-  Returns module currently used for either :transport or :handler.
+  Returns transport module.
   """
-  @spec get_module(Genserver.server(), :transport | :handler) :: any
-  def get_module(server, module_type) do
-    GenServer.call(server, {:get_module, module_type})
+  @spec get_transport_module(Genserver.server()) :: any
+  def get_transport_module(server) do
+    GenServer.call(server, {:get_module, :transport})
+  end
+
+  @doc """
+  Returns handler module.
+  """
+  @spec get_handler_module(Genserver.server()) :: any
+  def get_handler_module(server) do
+    GenServer.call(server, {:get_module, :handler})
   end
 
   # Callbacks
@@ -124,7 +132,43 @@ defmodule Janus.Connection do
     end
   end
 
+  # janus gateway does not generate response for
+  # keep-alive messages so skip process of blocking caller and
+  # inserting transaction to pending table
   @impl true
+  def handle_call(
+        {:call, %{"janus" => "keepalive"} = payload, timeout},
+        _from,
+        state(
+          transport_module: transport_module,
+          transport_state: transport_state,
+          pending_calls_table: pending_calls_table
+        ) = s
+      ) do
+    transaction = generate_transaction!(pending_calls_table)
+
+    Logger.debug(
+      "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{
+        inspect(payload)
+      }"
+    )
+
+    payload_with_transaction = Map.put(payload, :transaction, transaction)
+
+    case transport_module.send(payload_with_transaction, timeout, transport_state) do
+      {:ok, new_transport_state} ->
+        # reply directly with request message
+        {:reply, payload, state(s, transport_state: new_transport_state)}
+
+      {:error, reason} ->
+        Logger.error(
+          "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
+        )
+        # TODO check if this is correct return value
+        {:stop, {:call, reason}, s}
+    end
+  end
+
   def handle_call(
         {:call, payload, timeout},
         from,

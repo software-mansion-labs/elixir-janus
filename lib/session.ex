@@ -4,42 +4,112 @@ defmodule Janus.Session do
   if given connection's transport requires it.
   """
 
-  @type session_t :: pid()
+  @type t :: pid()
   @type message_t :: map()
   @type connection_t :: pid()
+  @type timeout_t :: non_neg_integer()
+
+  @type plugin_handle_id :: pos_integer
+  @type opaque_id :: String.t()
+  @type emitter :: String.t()
+  @type plugin :: String.t()
+  @type transport :: map
+
+  @default_timeout 5000
 
   use GenServer
   alias Janus.Connection
 
-  def start_link(session_id, connection, opts) do
-    GenServer.start_link(__MODULE__, {session_id, connection, opts}, [])
-  end
-
   @doc """
-  Adds `session_id` field and parses additional fields to merge them to given message.
+  Synchronously creates a new session on the gateway.
 
   ## Arguments
 
-  * `message` - message to append new fields to.
-  * `session` - a pid of `Janus.Session` process.
-  * `fields` - keyword list of additional fields to be merged to message.
+  * `connection` - a PID of the `Janus.Connection` process,
+  * `timeout` - a timeout for the call.
 
   ## Return values
 
-  Returns given message map with merged new fields.
+  On success it returns `{:ok, session}` where session is
+  a pid of `Janus.Session` process which keeps track of
+  session indentifier used by the gateway.
+
+  On error it returns `{:error, reason}`.
+
+  The reason might be:
+
+  * `{:gateway, code, info}` - it means that the call itself succeded but the
+    gateway returned an error of the given code and info,
+  * other - some serious error happened.
   """
-  @spec apply_fields(message_t(), session_t(), Keyword.t()) :: map()
-  def apply_fields(message, session, fields \\ []) do
-    session_id = GenServer.call(session, :get_session_id)
+  @spec start_link(pid, timeout) :: {:ok, Janus.Session.t()} | {:error, any}
+  def start_link(connection, timeout \\ @default_timeout) do
+    case Connection.call(connection, %{janus: :create}, timeout) do
+      {:ok, %{"id" => session_id}} ->
+        GenServer.start_link(__MODULE__, {session_id, connection, []}, [])
 
-    fields =
-      fields
-      |> Enum.map(fn {key, value} -> {Atom.to_string(key), value} end)
-      |> Enum.into(%{})
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
-    message
-    |> Map.put("session_id", session_id)
-    |> Map.merge(fields)
+  @doc """
+  Synchronously attaches a plugin to the session on the gateway.
+
+  ## Arguments
+
+  * `connection` - a PID of the `Janus.Connection` process,
+  * `session` - a PID of the `Janus.Session` process,
+  * `plugin` - a string containing valid gateway's plugin name,
+  * `timeout` - a timeout for the call.
+
+  ## Return values
+
+  On success it returns `{:ok, plugin_handle_id}` where `plugin_handle_id` is
+  a positive integer which is used as internal plugin handle identifier by the
+  gateway.
+
+  On error it returns `{:error, reason}`.
+
+  The reason might be:
+
+  * `{:gateway, code, info}` - it means that the call itself succeded but the
+    gateway returned an error of the given code and info,
+  * other - some serious error happened.
+  """
+  @spec session_attach(Janus.Session.t(), String.t(), timeout_t()) ::
+          {:ok, plugin_handle_id} | {:error, any}
+  def session_attach(session, plugin, timeout \\ @default_timeout) do
+    case __MODULE__.execute_request(
+           session,
+           %{janus: :attach, plugin: plugin},
+           timeout
+         ) do
+      {:ok, %{"id" => plugin_handle_id}} ->
+        {:ok, plugin_handle_id}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Adds `session_id` to given message and sends it through connection stored by given session.
+
+  ## Arguments
+
+  * `session` - a PID of `Janus.Session` process.
+  * `message` - map containing message request.
+  * `timeout` - timeout passed to `Janus.Connection.call/3`.
+
+  ## Return values
+
+  Returns response same as `Janus.Connection.call/3`.
+
+  """
+  @spec execute_request(Janus.Session.t(), map(), non_neg_integer()) :: {:ok, any} | {:error, any}
+  def execute_request(session, message, timeout \\ @default_timeout) do
+    GenServer.call(session, {:execute_message, message, timeout})
   end
 
   @doc """
@@ -54,7 +124,7 @@ defmodule Janus.Session do
 
   Returns :ok atom.
   """
-  @spec update_connection(session_t(), connection_t()) :: :ok
+  @spec update_connection(Janus.Session.t(), connection_t()) :: :ok
   def update_connection(session, connection) do
     GenServer.cast(session, {:new_connection, connection})
   end
@@ -68,7 +138,7 @@ defmodule Janus.Session do
       connection: connection
     }
 
-    keep_alive = Janus.Connection.get_module(connection, :transport).needs_keep_alive?()
+    keep_alive = Janus.Connection.get_transport_module(connection).needs_keep_alive?()
 
     case keep_alive do
       {true, keep_alive_timeout} ->
@@ -81,6 +151,17 @@ defmodule Janus.Session do
   end
 
   @impl true
+  def handle_call(
+        {:execute_message, message, timeout},
+        _from,
+        %{connection: connection, session_id: session_id} = state
+      ) do
+    message = Map.put(message, "session_id", session_id)
+    response = Connection.call(connection, message, timeout)
+
+    {:reply, response, state}
+  end
+
   def handle_call(:get_session_id, _from, %{session_id: session_id} = state) do
     {:reply, session_id, state}
   end

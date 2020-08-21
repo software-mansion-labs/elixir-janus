@@ -23,13 +23,10 @@ defmodule SessionTest do
       assert {:ok, sesison} = Janus.Session.start_link(@session_id, conn, [])
     end
 
-    test "apply session_id and other fields to message", %{connection: conn} do
+    test "execute message by applying session_id to it", %{connection: conn} do
       {:ok, session} = Janus.Session.start_link(@session_id, conn, [])
 
-      assert %{"session_id" => @session_id} = Janus.Session.apply_fields(%{}, session)
-
-      assert %{"session_id" => @session_id, "handle_id" => 0} =
-               Janus.Session.apply_fields(%{}, session, handle_id: 0)
+     assert %{"session_id" => @session_id, "janus" => "keepalive"} = Janus.Session.execute_request(session, %{"janus" => "keepalive"})
     end
 
     test "send keep-alive message via connection after timeout given by connection module", %{
