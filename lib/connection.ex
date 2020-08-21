@@ -23,15 +23,15 @@ defmodule Janus.Connection do
 
   ## Arguments
 
-  * `transport_module` - a module that implements `Wembrane.Gateway.Transport`
+  * `transport_module` - a module that implements `Janus.Transport`
     behaviour, responsible for handling the actual data flow to and from
     the gateway,
   * `transport_args` - a transport module-specific argument that will be
-    passed to the `c:Wembrane.Gateway.Transport.connect/1` callback.
-  * `handler_module` - a module that implements `Wembrane.Gateway.Handler`
+    passed to the `c:Janus.Transport.connect/1` callback.
+  * `handler_module` - a module that implements `Janus.Handler`
     behaviour, responsible for handling the callbacks sent from the gateway,
   * `handler_args` - a handler module-specific argument that will be
-    passed to the `c:Wembrane.Gateway.Handler.init/1` callback.
+    passed to the `c:Janus.Handler.init/1` callback.
   * `options` - process options, as in `GenServer.start_link/3`.
 
   ## Return values
@@ -58,7 +58,7 @@ defmodule Janus.Connection do
 
   ## Arguments
 
-  * `server` - a PID of the `Wembrane.Gateway.Connection` process,
+  * `server` - a PID of the `Janus.Connection` process,
   * `payload` - a map that can be later safely serialized to JSON according to the
     gateway's API but without the `transaction` key as it will be injected
     automatically,
@@ -79,6 +79,14 @@ defmodule Janus.Connection do
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
   def call(server, payload, timeout \\ @default_timeout) do
     GenServer.call(server, {:call, payload, timeout}, timeout)
+  end
+
+  @doc """
+  Returns module currently used for either :transport or :handler.
+  """
+  @spec get_module(Genserver.server(), :transport | :handler) :: any
+  def get_module(server, module_type) do
+    GenServer.call(server, {:get_module, module_type})
   end
 
   # Callbacks
@@ -154,6 +162,14 @@ defmodule Janus.Connection do
         # TODO check if this is correct return value
         {:stop, {:call, reason}, s}
     end
+  end
+
+  def handle_call({:get_module, :transport}, _from, state(transport_module: module) = state) do
+    {:reply, module, state}
+  end
+
+  def handle_call({:get_module, :handler}, _from, state(handler_module: module) = state) do
+    {:reply, module, state}
   end
 
   @impl true

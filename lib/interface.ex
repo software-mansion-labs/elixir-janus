@@ -3,7 +3,7 @@ defmodule Janus.Interface do
 
   @default_timeout 5000
 
-  @type session_id :: pos_integer
+  @type session :: pid()
   @type plugin_handle_id :: pos_integer
   @type opaque_id :: String.t()
   @type emitter :: String.t()
@@ -20,9 +20,9 @@ defmodule Janus.Interface do
 
   ## Return values
 
-  On success it returns `{:ok, session_id}` where `session_id` is
-  a positive integer which is used as internal session identifier by the
-  gateway.
+  On success it returns `{:ok, session}` where `session` is
+  a pid of `Janus.Session` process which keeps track of
+  session indentifier used by the gateway.
 
   On error it returns `{:error, reason}`.
 
@@ -32,11 +32,11 @@ defmodule Janus.Interface do
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
-  @spec session_create(pid, timeout) :: {:ok, session_id} | {:error, any}
+  @spec session_create(pid, timeout) :: {:ok, session} | {:error, any}
   def session_create(connection, timeout \\ @default_timeout) do
     case Connection.call(connection, %{janus: :create}, timeout) do
       {:ok, %{"id" => session_id}} ->
-        {:ok, session_id}
+        Janus.Session.start_link(session_id, connection, [])
 
       {:error, reason} ->
         {:error, reason}
@@ -48,8 +48,8 @@ defmodule Janus.Interface do
 
   ## Arguments
 
-  * `connection` - a PID of the `Wembrane.Gateway.Connection` process,
-  * `session_id` - a numeric session identifier,
+  * `connection` - a PID of the `Janus.Connection` process,
+  * `session` - a PID of the `Janus.Session` process,
   * `plugin` - a string containing valid gateway's plugin name,
   * `timeout` - a timeout for the call.
 
@@ -67,12 +67,12 @@ defmodule Janus.Interface do
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
-  @spec session_attach(pid, session_id, String.t(), timeout) ::
+  @spec session_attach(pid, session, String.t(), timeout) ::
           {:ok, plugin_handle_id} | {:error, any}
-  def session_attach(connection, session_id, plugin, timeout \\ @default_timeout) do
+  def session_attach(connection, session, plugin, timeout \\ @default_timeout) do
     case Connection.call(
            connection,
-           %{janus: :attach, session_id: session_id, plugin: plugin},
+           %{janus: :attach, plugin: plugin} |> Janus.Session.apply_fields(session),
            timeout
          ) do
       {:ok, %{"id" => plugin_handle_id}} ->
