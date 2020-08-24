@@ -30,7 +30,8 @@ defmodule Janus.Session do
 
   On success it returns `{:ok, session}` where session is
   a pid of `Janus.Session` process which keeps track of
-  session indentifier used by the gateway.
+  session indentifier used by the gateway. Session process is linked with
+  calling process.
 
   On error it returns `{:error, reason}`.
 
