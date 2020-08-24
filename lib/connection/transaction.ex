@@ -55,7 +55,7 @@ defmodule Janus.Connection.Transaction do
 
     match_spec =
       Ex2ms.fun do
-        {_transaction, _from, expires_at} -> expires_at > ^now
+        {_transaction, _from, expires_at} -> expires_at < ^now
       end
 
     case :ets.select_delete(pending_calls_table, match_spec) do

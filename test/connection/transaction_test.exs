@@ -1,10 +1,23 @@
 defmodule Janus.Connection.TransactionTest do
-  use ExUnit.Case
+  alias Janus.Connection.Transaction
   import ExUnit.CaptureLog
+  import Mock
+  use ExUnit.Case
 
   @tag :tag
-
-  alias Janus.Connection.Transaction
+  @timeout 5000
+  @now %DateTime{
+    year: 2000,
+    month: 2,
+    day: 29,
+    zone_abbr: "CET",
+    hour: 23,
+    minute: 0,
+    second: 7,
+    utc_offset: 3600,
+    std_offset: 0,
+    time_zone: "Etc/UTC"
+  }
 
   setup do
     table = Transaction.init_transaction_call_table()
@@ -70,18 +83,117 @@ defmodule Janus.Connection.TransactionTest do
   end
 
   describe "insert_transaction adds new transaction" do
-    test "with proper expiration time"
+    test "with proper expiration time", %{table: table, transaction: transaction} do
+      with_mock DateTime, [:passthrough], utc_now: fn -> @now end do
+        Transaction.insert_transaction(table, transaction, from(), @timeout)
+
+        expires =
+          @now
+          |> DateTime.add(@timeout, :millisecond)
+          |> DateTime.to_unix(:millisecond)
+
+        case :ets.lookup(table, transaction) do
+          [{_, _, expires_at}] ->
+            assert expires == expires_at
+
+          _ ->
+            raise "Transaction has not been added!"
+        end
+      end
+    end
   end
 
   describe "transaction_status returns" do
-    test ":ok tuple if transaction is up to date"
-    test ":outdated error if transaction expired"
-    test ":unkown error if transaction hadn't been registered"
+    setup_with_mocks(
+      [{DateTime, [:passthrough], utc_now: fn -> @now end}],
+      %{table: table, transaction: transaction}
+    ) do
+      Transaction.insert_transaction(table, transaction, from(), @timeout)
+      []
+    end
+
+    test ":ok tuple if transaction is up to date", %{table: table, transaction: transaction} do
+      with_mock DateTime, [:passthrough],
+        utc_now: fn -> @now |> DateTime.add(@timeout, :millisecond) end do
+        assert {:ok, _} = Transaction.transaction_status(table, transaction)
+      end
+    end
+
+    test ":outdated error if transaction expired", %{table: table, transaction: transaction} do
+      with_mock DateTime, [:passthrough],
+        utc_now: fn -> @now |> DateTime.add(@timeout + 1, :millisecond) end do
+        assert {:error, :outdated} = Transaction.transaction_status(table, transaction)
+      end
+    end
+
+    test ":unkown error if transaction hadn't been registered", %{table: table} do
+      transaction = Transaction.generate_transaction!(table)
+      assert {:error, :unknown} == Transaction.transaction_status(table, transaction)
+    end
   end
 
   describe "cleanup_old_transaction" do
-    test "removes all expired transactions and returns ok"
-    test "return noop if there were no expired transactions"
+    setup_with_mocks(
+      [{DateTime, [:passthrough], utc_now: fn -> @now end}],
+      %{table: table, transaction: first_transaction}
+    ) do
+      first_timeout = @timeout
+      Transaction.insert_transaction(table, first_transaction, from(), first_timeout)
+
+      next_transaction = Transaction.generate_transaction!(table)
+      next_timeout = first_timeout + @timeout
+      Transaction.insert_transaction(table, next_transaction, from(), next_timeout)
+
+      [first_timeout: first_timeout, next_timeout: next_timeout]
+    end
+
+    test "removes all expired transactions if part was expired and returns ok", %{
+      first_timeout: first_timeout,
+      table: table
+    } do
+      with_mock DateTime, [:passthrough],
+        utc_now: fn -> @now |> DateTime.add(first_timeout + 1, :millisecond) end do
+        logs =
+          capture_log(fn ->
+            assert Transaction.cleanup_old_transactions(table)
+          end)
+
+        refute_receive _
+        assert logs =~ "Cleanup: cleaned up 1 outdated transaction(s)"
+      end
+    end
+
+    test "removes all expired transactions if all were expired and returns ok", %{
+      next_timeout: next_timeout,
+      table: table
+    } do
+      with_mock DateTime, [:passthrough],
+        utc_now: fn -> @now |> DateTime.add(next_timeout + 1, :millisecond) end do
+        logs =
+          capture_log(fn ->
+            assert Transaction.cleanup_old_transactions(table)
+          end)
+
+        refute_receive _
+        assert logs =~ "Cleanup: cleaned up 2 outdated transaction(s)"
+      end
+    end
+
+    test "return noop if there were no expired transactions", %{
+      first_timeout: first_timeout,
+      table: table
+    } do
+      with_mock DateTime, [:passthrough],
+        utc_now: fn -> @now |> DateTime.add(first_timeout - 1, :millisecond) end do
+        logs =
+          capture_log(fn ->
+            assert not Transaction.cleanup_old_transactions(table)
+          end)
+
+        refute_receive _
+        assert logs =~ "Cleanup: no outdated transactions found"
+      end
+    end
   end
 
   defp from(), do: {self(), @tag}

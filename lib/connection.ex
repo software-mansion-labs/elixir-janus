@@ -5,7 +5,7 @@ defmodule Janus.Connection do
   require Record
   require Logger
 
-  alias Janus.API.{ResponseHandler, Transaction}
+  alias Janus.Connection.Transaction
 
   @default_timeout 5000
   @cleanup_interval 60000
@@ -194,7 +194,7 @@ defmodule Janus.Connection do
          state(pending_calls_table: pending_calls_table) = state
        ) do
     data = response["data"] || response["plugindata"]["data"]
-    ResponseHandler.handle_response({:ok, data}, transaction, pending_calls_table)
+    Transaction.handle_transaction({:ok, data}, transaction, pending_calls_table)
     {:ok, state}
   end
 
@@ -207,7 +207,7 @@ defmodule Janus.Connection do
          },
          state(pending_calls_table: pending_calls_table) = state
        ) do
-    ResponseHandler.handle_response(
+    Transaction.handle_transaction(
       {:error, {:gateway, code, reason}},
       transaction,
       pending_calls_table
