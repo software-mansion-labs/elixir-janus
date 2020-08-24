@@ -1,38 +1,34 @@
 defmodule Janus.SessionTest do
   use ExUnit.Case
+  alias Janus.{Session, Connection}
 
   @session_id 1
   @default_connection_id 0
 
   setup do
     # Fake transport will send back any message received to given pid
-    {:ok, connection} =
-      Janus.Connection.start_link(
-        FakeTransport,
-        {@default_connection_id, self()},
-        FakeHandler,
-        [],
-        []
-      )
+    transport_args =  {@default_connection_id, self()}
+    {:ok, connection} = Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
 
     %{connection: connection}
   end
 
   describe "Session should" do
     test "be created without error", %{connection: conn} do
-      assert {:ok, sesison} = Janus.Session.start_link(@session_id, conn)
+      assert {:ok, sesison} = Session.start_link(@session_id, conn)
     end
 
     test "execute message by applying session_id to it", %{connection: conn} do
-      {:ok, session} = Janus.Session.start_link(@session_id, conn)
+      {:ok, session} = Session.start_link(@session_id, conn)
 
-     assert %{"session_id" => @session_id, "janus" => "keepalive"} = Janus.Session.execute_request(session, %{"janus" => "keepalive"})
+      assert %{"session_id" => @session_id, "janus" => "keepalive"} =
+               Session.execute_request(session, %{"janus" => "keepalive"})
     end
 
     test "send keep-alive message via connection after timeout given by connection module", %{
       connection: conn
     } do
-      {:ok, _session} = Janus.Session.start_link(@session_id, conn)
+      {:ok, _session} = Session.start_link(@session_id, conn)
 
       {true, timeout} = FakeTransport.needs_keep_alive?()
 
@@ -42,20 +38,16 @@ defmodule Janus.SessionTest do
     end
 
     test "replaces old connection with a new one", %{connection: conn} do
-      {:ok, session} = Janus.Session.start_link(@session_id, conn)
+      {:ok, session} = Session.start_link(@session_id, conn)
 
       new_connection_id = 1
 
-      {:ok, connection} =
-        Janus.Connection.start_link(
-          FakeTransport,
-          {new_connection_id, self()},
-          FakeHandler,
-          [],
-          []
-        )
+      transport_args = {new_connection_id, self()}
 
-      Janus.Session.update_connection(session, connection)
+      {:ok, connection} =
+        Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
+
+      Session.update_connection(session, connection)
       {true, timeout} = FakeTransport.needs_keep_alive?()
 
       assert_receive {:message, _, ^new_connection_id}, 2 * timeout

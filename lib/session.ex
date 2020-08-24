@@ -4,6 +4,12 @@ defmodule Janus.Session do
   if given connection's transport requires it.
   """
 
+  use GenServer
+  alias Janus.Connection
+
+  @default_timeout 5000
+  @no_such_feed_error 428
+
   @type t :: pid()
   @type message_t :: map()
   @type connection_t :: pid()
@@ -13,10 +19,7 @@ defmodule Janus.Session do
 
   @type plugin_handle_id :: pos_integer
 
-  @default_timeout 5000
 
-  use GenServer
-  alias Janus.Connection
 
   @doc """
   Synchronously creates a new session on the gateway.
@@ -46,6 +49,9 @@ defmodule Janus.Session do
     case Connection.call(connection, %{janus: :create}, timeout) do
       {:ok, %{"id" => session_id}} ->
         start_link(session_id, connection)
+
+      {:ok, %{"error" => _message, "error_code" => @no_such_feed_error}} ->
+        {:error, "no such feed error"}
 
       {:error, reason} ->
         {:error, reason}
@@ -83,7 +89,7 @@ defmodule Janus.Session do
   @spec session_attach(Janus.Session.t(), plugin_t(), timeout_t()) ::
           {:ok, plugin_handle_id} | {:error, any}
   def session_attach(session, plugin, timeout \\ @default_timeout) do
-    case __MODULE__.execute_request(
+    case execute_request(
            session,
            %{janus: :attach, plugin: plugin},
            timeout

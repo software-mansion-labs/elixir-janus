@@ -2,7 +2,7 @@ defmodule Janus.Transport do
   @type reason :: any
   @type state :: any
   @type payload :: map
-  @type keepalive_timeout :: number
+  @type keepalive_timeout :: non_neg_integer
 
   @callback connect(any) :: {:ok, state} | {:error, reason}
   @callback send(payload, timeout, state) :: {:ok, state} | {:error, reason, state}

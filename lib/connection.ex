@@ -143,7 +143,7 @@ defmodule Janus.Connection do
           transport_module: transport_module,
           transport_state: transport_state,
           pending_calls_table: pending_calls_table
-        ) = s
+        ) = state
       ) do
     transaction = generate_transaction!(pending_calls_table)
 
@@ -176,7 +176,7 @@ defmodule Janus.Connection do
           transport_module: transport_module,
           transport_state: transport_state,
           pending_calls_table: pending_calls_table
-        ) = s
+        ) = state
       ) do
     transaction = generate_transaction!(pending_calls_table)
 
@@ -196,7 +196,7 @@ defmodule Janus.Connection do
           |> DateTime.to_unix(:millisecond)
 
         :ets.insert(pending_calls_table, {transaction, from, expires_at})
-        {:noreply, state(s, transport_state: new_transport_state)}
+        {:noreply, state(state, transport_state: new_transport_state)}
 
       {:error, reason} ->
         Logger.error(
@@ -204,7 +204,7 @@ defmodule Janus.Connection do
         )
 
         # TODO check if this is correct return value
-        {:stop, {:call, reason}, s}
+        {:stop, {:call, reason}, state}
     end
   end
 
@@ -217,7 +217,7 @@ defmodule Janus.Connection do
   end
 
   @impl true
-  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
+  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = state) do
     require Ex2ms
     now = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
 
@@ -237,7 +237,7 @@ defmodule Janus.Connection do
     end
 
     Process.send_after(self(), :cleanup, @cleanup_interval)
-    {:noreply, s}
+    {:noreply, state}
   end
 
   def handle_info(
