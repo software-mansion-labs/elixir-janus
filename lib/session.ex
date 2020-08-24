@@ -8,12 +8,10 @@ defmodule Janus.Session do
   @type message_t :: map()
   @type connection_t :: pid()
   @type timeout_t :: non_neg_integer()
+  @type session_id_t :: non_neg_integer()
+  @type plugin_t :: String.t()
 
   @type plugin_handle_id :: pos_integer
-  @type opaque_id :: String.t()
-  @type emitter :: String.t()
-  @type plugin :: String.t()
-  @type transport :: map
 
   @default_timeout 5000
 
@@ -42,15 +40,20 @@ defmodule Janus.Session do
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
-  @spec start_link(pid, timeout) :: {:ok, Janus.Session.t()} | {:error, any}
-  def start_link(connection, timeout \\ @default_timeout) do
+  @spec create_linked_session(connection_t(), timeout_t()) :: {:ok, Janus.Session.t()} | {:error, any}
+  def create_linked_session(connection, timeout \\ @default_timeout) do
     case Connection.call(connection, %{janus: :create}, timeout) do
       {:ok, %{"id" => session_id}} ->
-        GenServer.start_link(__MODULE__, {session_id, connection, []}, [])
+        start_link(session_id, connection)
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @spec start_link(session_id_t(), connection_t()) :: GenServer.server()
+  def start_link(session_id, connection) do
+    GenServer.start_link(__MODULE__, {session_id, connection}, [])
   end
 
   @doc """
@@ -58,7 +61,6 @@ defmodule Janus.Session do
 
   ## Arguments
 
-  * `connection` - a PID of the `Janus.Connection` process,
   * `session` - a PID of the `Janus.Session` process,
   * `plugin` - a string containing valid gateway's plugin name,
   * `timeout` - a timeout for the call.
@@ -77,7 +79,7 @@ defmodule Janus.Session do
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
-  @spec session_attach(Janus.Session.t(), String.t(), timeout_t()) ::
+  @spec session_attach(Janus.Session.t(), plugin_t(), timeout_t()) ::
           {:ok, plugin_handle_id} | {:error, any}
   def session_attach(session, plugin, timeout \\ @default_timeout) do
     case __MODULE__.execute_request(
@@ -105,9 +107,8 @@ defmodule Janus.Session do
   ## Return values
 
   Returns response same as `Janus.Connection.call/3`.
-
   """
-  @spec execute_request(Janus.Session.t(), map(), non_neg_integer()) :: {:ok, any} | {:error, any}
+  @spec execute_request(Janus.Session.t(), message_t(), timeout_t()) :: {:ok, any} | {:error, any}
   def execute_request(session, message, timeout \\ @default_timeout) do
     GenServer.call(session, {:execute_message, message, timeout})
   end
@@ -132,7 +133,7 @@ defmodule Janus.Session do
   # callbacks
 
   @impl true
-  def init({session_id, connection, _opts}) do
+  def init({session_id, connection}) do
     state = %{
       session_id: session_id,
       connection: connection

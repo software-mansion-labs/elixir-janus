@@ -20,11 +20,11 @@ defmodule SessionTest do
 
   describe "Session should" do
     test "be created without error", %{connection: conn} do
-      assert {:ok, sesison} = Janus.Session.start_link(@session_id, conn, [])
+      assert {:ok, sesison} = Janus.Session.start_link(@session_id, conn)
     end
 
     test "execute message by applying session_id to it", %{connection: conn} do
-      {:ok, session} = Janus.Session.start_link(@session_id, conn, [])
+      {:ok, session} = Janus.Session.start_link(@session_id, conn)
 
      assert %{"session_id" => @session_id, "janus" => "keepalive"} = Janus.Session.execute_request(session, %{"janus" => "keepalive"})
     end
@@ -32,7 +32,7 @@ defmodule SessionTest do
     test "send keep-alive message via connection after timeout given by connection module", %{
       connection: conn
     } do
-      {:ok, _session} = Janus.Session.start_link(@session_id, conn, [])
+      {:ok, _session} = Janus.Session.start_link(@session_id, conn)
 
       {true, timeout} = FakeTransport.needs_keep_alive?()
 
@@ -42,7 +42,7 @@ defmodule SessionTest do
     end
 
     test "replaces old connection with a new one", %{connection: conn} do
-      {:ok, session} = Janus.Session.start_link(@session_id, conn, [])
+      {:ok, session} = Janus.Session.start_link(@session_id, conn)
 
       new_connection_id = 1
 
