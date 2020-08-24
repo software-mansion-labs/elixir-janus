@@ -2,11 +2,50 @@ defmodule Janus.Transport do
   @type reason :: any
   @type state :: any
   @type payload :: map
-  @type keepalive_timeout :: non_neg_integer
 
+  @doc """
+  Creates transport specific connection and preserves it in state.
+
+  Returns either `{:ok, state}` indicating valid transport state
+  or `{:error, reason}` indicating connection failure.
+  """
   @callback connect(any) :: {:ok, state} | {:error, reason}
+
+  @doc """
+  Synchronously sends given payload via previously created transport connection respecting given timeout.
+
+  ## Arguments
+  * `payload` - arbitrary map structure to be sent via transport
+  * `timeout` - time after which `send/3` call should return imidiately with an error
+  * `state` - state structure containing valid transport data necessary to send payload
+
+  ## Returns
+  `{:ok, state}` on successful payload delivery
+  `{:error, reason, state}` on delivery failure
+  """
   @callback send(payload, timeout, state) :: {:ok, state} | {:error, reason, state}
-  @callback handle_info(any, state) ::
+
+  @doc """
+  Handles arbitrary data to be processed by transport implementation.
+
+  Main purpose is to parse messages sent to the process owner by the transport module.
+
+  ## Arguments
+  * `info` - arbitrary data to be handled by module
+  * `state` - state structure contianing transport data
+
+  ## Returns
+  on succes:
+  `{:ok, state}` or `{:ok, payload, state}` if message contained payload
+
+  on error:
+  `{:error, reason, state}`
+  """
+  @callback handle_info(info :: any, state) ::
               {:ok, state} | {:ok, payload, state} | {:error, reason, state}
-  @callback needs_keep_alive?() :: {true, keepalive_timeout} | false
+
+  @doc """
+  Indicates whether given transport requires keepalive messages, if so provides necessary timeout.
+  """
+  @callback keepalive_timeout() :: timeout | nil
 end

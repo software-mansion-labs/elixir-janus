@@ -30,7 +30,7 @@ defmodule Janus.SessionTest do
     } do
       {:ok, _session} = Session.start_link(@session_id, conn)
 
-      {true, timeout} = FakeTransport.needs_keep_alive?()
+      timeout = FakeTransport.keepalive_timeout()
 
       assert_receive {:message, %{"janus" => "keepalive", "session_id" => @session_id},
                       @default_connection_id},
@@ -48,7 +48,7 @@ defmodule Janus.SessionTest do
         Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
 
       Session.update_connection(session, connection)
-      {true, timeout} = FakeTransport.needs_keep_alive?()
+      timeout = FakeTransport.keepalive_timeout()
 
       assert_receive {:message, _, ^new_connection_id}, 2 * timeout
       refute_receive {:message, _, @default_connection_id}, 2 * timeout

@@ -19,7 +19,7 @@ defmodule FakeTransport do
   end
 
   @impl true
-  def needs_keep_alive?() do
-    {true, @keepalive_timeout}
+  def keepalive_timeout() do
+    @keepalive_timeout
   end
 end

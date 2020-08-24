@@ -146,15 +146,14 @@ defmodule Janus.Session do
       connection: connection
     }
 
-    keep_alive = Janus.Connection.get_transport_module(connection).needs_keep_alive?()
+    keep_alive = Janus.Connection.get_transport_module(connection).keepalive_timeout()
 
     case keep_alive do
-      {true, keep_alive_timeout} ->
-        Process.send_after(self(), :keep_alive, keep_alive_timeout)
-        {:ok, state |> Map.put(:keep_alive_timeout, keep_alive_timeout)}
-
-      false ->
+      nil ->
         {:ok, state}
+      timeout ->
+        Process.send_after(self(), :keep_alive, timeout)
+        {:ok, state |> Map.put(:keep_alive_timeout, timeout)}
     end
   end
 
