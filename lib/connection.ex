@@ -158,14 +158,14 @@ defmodule Janus.Connection do
     case transport_module.send(payload_with_transaction, timeout, transport_state) do
       {:ok, new_transport_state} ->
         # reply directly with request message
-        {:reply, payload, state(s, transport_state: new_transport_state)}
+        {:reply, payload, state(state, transport_state: new_transport_state)}
 
       {:error, reason} ->
         Logger.error(
           "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
         )
         # TODO check if this is correct return value
-        {:stop, {:call, reason}, s}
+        {:stop, {:call, reason}, state}
     end
   end
 

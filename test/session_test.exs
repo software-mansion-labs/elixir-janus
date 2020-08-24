@@ -1,4 +1,4 @@
-defmodule SessionTest do
+defmodule Janus.SessionTest do
   use ExUnit.Case
 
   @session_id 1
