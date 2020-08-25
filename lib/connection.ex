@@ -160,9 +160,9 @@ defmodule Janus.Connection do
         # reply directly with request message
         {:reply, payload, state(state, transport_state: new_transport_state)}
 
-      {:error, reason} ->
+      {:error, reason, state} ->
         Logger.error(
-          "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
+          "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)} state = #{inspect(state)}"
         )
         # TODO check if this is correct return value
         {:stop, {:call, reason}, state}
