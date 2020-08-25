@@ -8,7 +8,6 @@ defmodule Janus.Session do
   alias Janus.Connection
 
   @default_timeout 5000
-  @no_such_feed_error 428
 
   @type t :: pid()
   @type message_t :: map()
@@ -50,9 +49,7 @@ defmodule Janus.Session do
       {:ok, %{"id" => session_id}} ->
         start_link(session_id, connection)
 
-      {:ok, %{"error" => _message, "error_code" => @no_such_feed_error}} ->
-        {:error, "no such feed error"}
-
+      # TODO: handle positive errors
       {:error, reason} ->
         {:error, reason}
     end
