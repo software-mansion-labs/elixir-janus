@@ -21,10 +21,16 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  @spec insert_transaction(:ets.tab(), binary, GenServer.from(), integer) :: true
-  def insert_transaction(pending_calls_table, transaction, from, timeout) do
+  @spec insert_transaction(:ets.tab(), binary, GenServer.from(), integer, DateTime.t()) :: true
+  def insert_transaction(
+        pending_calls_table,
+        transaction,
+        from,
+        timeout,
+        timestamp \\ DateTime.utc_now()
+      ) do
     expires_at =
-      DateTime.utc_now()
+      timestamp
       |> DateTime.add(timeout, :millisecond)
       |> DateTime.to_unix(:millisecond)
 
@@ -32,12 +38,12 @@ defmodule Janus.Connection.Transaction do
     :ets.insert(pending_calls_table, {transaction, from, expires_at})
   end
 
-  @spec transaction_status(:ets.tab(), binary) ::
+  @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
           {:error, :outdated | :unknown} | {:ok, GenServer.from()}
-  def transaction_status(pending_calls_table, transaction) do
+  def transaction_status(pending_calls_table, transaction, timestamp \\ DateTime.utc_now()) do
     case :ets.lookup(pending_calls_table, transaction) do
       [{_transaction, from, expires_at}] ->
-        if DateTime.utc_now() |> DateTime.to_unix(:millisecond) > expires_at do
+        if timestamp |> DateTime.to_unix(:millisecond) > expires_at do
           {:error, :outdated}
         else
           {:ok, from}
@@ -48,14 +54,14 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  @spec cleanup_old_transactions(:ets.tab()) :: boolean
-  def cleanup_old_transactions(pending_calls_table) do
+  @spec cleanup_old_transactions(:ets.tab(), DateTime.t()) :: boolean
+  def cleanup_old_transactions(pending_calls_table, timestamp \\ DateTime.utc_now()) do
     require Ex2ms
-    now = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
+    timestamp = timestamp |> DateTime.to_unix(:millisecond)
 
     match_spec =
       Ex2ms.fun do
-        {_transaction, _from, expires_at} -> expires_at < ^now
+        {_transaction, _from, expires_at} -> expires_at < ^timestamp
       end
 
     case :ets.select_delete(pending_calls_table, match_spec) do
