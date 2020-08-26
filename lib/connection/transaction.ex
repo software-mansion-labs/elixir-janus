@@ -2,6 +2,8 @@ defmodule Janus.Connection.Transaction do
   @moduledoc false
 
   @transaction_length 32
+  @insert_tries 5
+  @generate_tries 5
 
   require Logger
   # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
@@ -12,12 +14,17 @@ defmodule Janus.Connection.Transaction do
   end
 
   @spec insert_transaction(:ets.tab(), GenServer.from(), integer, DateTime.t()) :: binary
+
   def insert_transaction(
         pending_calls_table,
         from,
         timeout,
-        timestamp \\ DateTime.utc_now()
-      ) do
+        timestamp \\ DateTime.utc_now(),
+        tries \\ @insert_tries
+      )
+
+  def insert_transaction(pending_calls_table, from, timeout, timestamp, tries)
+      when tries > 0 do
     transaction = generate_transaction!(pending_calls_table)
 
     expires_at =
@@ -26,13 +33,22 @@ defmodule Janus.Connection.Transaction do
       |> DateTime.to_unix(:millisecond)
 
     # Maybe insert new instead
-    :ets.insert_new(pending_calls_table, {transaction, from, expires_at})
-    transaction
+
+    if :ets.insert_new(pending_calls_table, {transaction, from, expires_at}) do
+      transaction
+    else
+      insert_transaction(pending_calls_table, from, timeout, timestamp, tries - 1)
+    end
   end
+
+  def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0),
+    do: raise("Could not insert transaction")
 
   # Generates a transaction ID for the payload and ensures that it is unused
   @spec generate_transaction!(:ets.tab()) :: binary
-  defp generate_transaction!(pending_calls_table) do
+  defp generate_transaction!(pending_calls_table, tries \\ @generate_tries)
+
+  defp generate_transaction!(pending_calls_table, tries) when tries > 0 do
     transaction = :crypto.strong_rand_bytes(@transaction_length) |> Base.encode64()
 
     case :ets.lookup(pending_calls_table, transaction) do
@@ -40,9 +56,11 @@ defmodule Janus.Connection.Transaction do
         transaction
 
       _ ->
-        generate_transaction!(pending_calls_table)
+        generate_transaction!(pending_calls_table, tries - 1)
     end
   end
+
+  defp generate_transaction!(_, 0), do: raise("Could not generate transaction!")
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
           {:error, :outdated | :unknown} | {:ok, GenServer.from()}
@@ -103,7 +121,7 @@ defmodule Janus.Connection.Transaction do
     call_result =
       case response do
         {:ok, _} -> "OK"
-        {:error, _, _} -> "ERROR"
+        {:error, _} -> "ERROR"
       end
 
     log_transaction_status(transaction_status, transaction, response, call_result)

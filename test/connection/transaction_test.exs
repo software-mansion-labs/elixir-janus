@@ -44,7 +44,7 @@ defmodule Janus.Connection.TransactionTest do
     end
 
     test "when response is an error", %{table: table, transaction: transaction} do
-      response = {:error, 418, "reason"}
+      response = {:error, {:gateway, 418, "reason"}}
 
       logs =
         capture_log(fn ->
@@ -81,16 +81,22 @@ defmodule Janus.Connection.TransactionTest do
     end
   end
 
-  describe "insert_transaction adds new transaction" do
-    test "with proper expiration time", %{table: table} do
-      transaction = Transaction.insert_transaction(table, from(), @timeout, @now)
-
+  describe "insert_transaction" do
+    test "adds new transaction with proper expiration time", %{table: table} do
       expires =
         @now
         |> DateTime.add(@timeout, :millisecond)
         |> DateTime.to_unix(:millisecond)
 
+      transaction = Transaction.insert_transaction(table, from(), @timeout, @now)
+
       assert [{_, _, ^expires}] = :ets.lookup(table, transaction)
+    end
+
+    test "raises an error when tried too many_times", %{table: table} do
+      assert_raise(RuntimeError, fn ->
+        Transaction.insert_transaction(table, from(), @timeout, @now, 0)
+      end)
     end
   end
 
