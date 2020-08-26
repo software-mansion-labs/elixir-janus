@@ -90,13 +90,7 @@ defmodule Janus.Connection.TransactionTest do
         |> DateTime.add(@timeout, :millisecond)
         |> DateTime.to_unix(:millisecond)
 
-      case :ets.lookup(table, transaction) do
-        [{_, _, expires_at}] ->
-          assert expires == expires_at
-
-        _ ->
-          raise "Transaction has not been added!"
-      end
+      assert [{_, _, ^expires}] = :ets.lookup(table, transaction)
     end
   end
 
