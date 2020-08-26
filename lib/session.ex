@@ -101,6 +101,9 @@ defmodule Janus.Session do
 
   @impl true
   def init({connection, timeout}) do
+    Process.flag(:trap_exit, true)
+    Process.link(connection)
+
     case Connection.call(connection, %{janus: :create}, timeout) do
       {:ok, %{"id" => session_id}} ->
         state = %{session_id: session_id, connection: connection}
@@ -153,6 +156,10 @@ defmodule Janus.Session do
     Connection.call(connection, keep_alive_message(session_id))
     Process.send_after(self(), :keep_alive, interval)
     {:noreply, state}
+  end
+
+  def handle_info({:EXIT, pid, reason}, %{connection: conn} = state) when pid == conn do
+    {:stop, {:connection, reason}, state}
   end
 
   @impl true
