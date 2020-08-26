@@ -9,19 +9,17 @@ defmodule Janus.Session do
 
   @default_timeout 5000
 
-  @type t :: pid()
+  @type t :: GenServer.server()
   @type message_t :: map()
-  @type connection_t :: pid()
   @type timeout_t :: non_neg_integer()
   @type session_id_t :: non_neg_integer()
   @type plugin_t :: String.t()
 
   @type plugin_handle_id :: pos_integer
 
-
-
   @doc """
-  Synchronously creates a new session on the gateway.
+  Starts the session and links it to the current
+  process.
 
   ## Arguments
 
@@ -30,34 +28,16 @@ defmodule Janus.Session do
 
   ## Return values
 
-  On success it returns `{:ok, session}` where session is
-  a pid of `Janus.Session` process which keeps track of
-  session indentifier used by the gateway. Session process is linked with
-  calling process.
+  Returns the same values as `GenServer.start_link/3`.
 
-  On error it returns `{:error, reason}`.
-
-  The reason might be:
-
+  If session fails to start the reason might be:
   * `{:gateway, code, info}` - it means that the call itself succeded but the
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
-  @spec create_linked_session(connection_t(), timeout_t()) :: {:ok, Janus.Session.t()} | {:error, any}
-  def create_linked_session(connection, timeout \\ @default_timeout) do
-    case Connection.call(connection, %{janus: :create}, timeout) do
-      {:ok, %{"id" => session_id}} ->
-        start_link(session_id, connection)
-
-      # TODO: handle positive errors
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @spec start_link(session_id_t(), connection_t()) :: GenServer.server()
-  def start_link(session_id, connection) do
-    GenServer.start_link(__MODULE__, {session_id, connection}, [])
+  @spec start_link(Connection.t(), timeout_t()) :: {:ok, Janus.Session.t()} | {:error, any}
+  def start_link(connection, timeout \\ @default_timeout) do
+    GenServer.start_link(__MODULE__, {connection, timeout}, [])
   end
 
   @doc """
@@ -117,40 +97,31 @@ defmodule Janus.Session do
     GenServer.call(session, {:execute_message, message, timeout})
   end
 
-  @doc """
-  Replaces current connection with a new one.
-
-  ## Arguments
-
-  * `session` - a PID of `Janus.Session` process.
-  * `connection` - a PID of `Janus.Connection` process.
-
-  ## Return values
-
-  Returns an `:ok` atom.
-  """
-  @spec update_connection(Janus.Session.t(), connection_t()) :: :ok
-  def update_connection(session, connection) do
-    GenServer.cast(session, {:new_connection, connection})
-  end
-
   # callbacks
 
   @impl true
-  def init({session_id, connection}) do
-    state = %{
-      session_id: session_id,
-      connection: connection
-    }
+  def init({connection, timeout}) do
+    case Connection.call(connection, %{janus: :create}, timeout) do
+      {:ok, %{"id" => session_id}} ->
+        state = %{session_id: session_id, connection: connection}
 
-    keep_alive = Janus.Connection.get_transport_module(connection).keepalive_timeout()
+        interval = Janus.Connection.get_transport_module(connection).keepalive_interval()
 
-    case keep_alive do
-      nil ->
+        state =
+          case interval do
+            nil ->
+              state
+
+            interval ->
+              Process.send_after(self(), :keep_alive, interval)
+              Map.put(state, :keepalive_interval, interval)
+          end
+
         {:ok, state}
-      timeout ->
-        Process.send_after(self(), :keep_alive, timeout)
-        {:ok, state |> Map.put(:keep_alive_timeout, timeout)}
+
+      # TODO: handle positive errors
+      {:error, reason} ->
+        {:stop, reason}
     end
   end
 
@@ -176,11 +147,11 @@ defmodule Janus.Session do
         %{
           session_id: session_id,
           connection: connection,
-          keep_alive_timeout: keep_alive_timeout
+          keepalive_interval: interval
         } = state
       ) do
     Connection.call(connection, keep_alive_message(session_id))
-    Process.send_after(self(), :keep_alive, keep_alive_timeout)
+    Process.send_after(self(), :keep_alive, interval)
     {:noreply, state}
   end
 
@@ -191,8 +162,8 @@ defmodule Janus.Session do
 
   defp keep_alive_message(session_id) do
     %{
-      "janus" => "keepalive",
-      "session_id" => session_id
+      janus: :keepalive,
+      session_id: session_id
     }
   end
 end

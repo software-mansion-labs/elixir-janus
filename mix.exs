@@ -24,7 +24,8 @@ defmodule Janus.MixProject do
   defp deps do
     [
       {:bunch, "~> 1.3"},
-      {:ex2ms, "~> 1.0"}
+      {:ex2ms, "~> 1.0"},
+      {:jason, "~> 1.2", only: :test}
     ]
   end
 end

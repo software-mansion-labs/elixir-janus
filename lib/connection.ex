@@ -8,6 +8,8 @@ defmodule Janus.Connection do
   @default_timeout 5000
   @cleanup_interval 60000
 
+  @type t :: GenServer.server()
+
   Record.defrecordp(:state,
     transport_module: nil,
     transport_state: nil,
@@ -132,6 +134,7 @@ defmodule Janus.Connection do
     end
   end
 
+  @impl true
   def handle_call(
         {:call, payload, timeout},
         from,
@@ -254,6 +257,10 @@ defmodule Janus.Connection do
          state
        ) do
     handle_successful_payload(transaction, data, state)
+  end
+
+  defp handle_payload(%{"janus" => "ack", "transaction" => transaction} = payload, state) do
+    handle_successful_payload(transaction, payload, state)
   end
 
   defp handle_payload(

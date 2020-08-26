@@ -4,10 +4,11 @@ defmodule Janus.SessionTest do
 
   @session_id 1
   @default_connection_id 0
+  @timeout 100
 
   setup do
     # Fake transport will send back any message received to given pid
-    transport_args =  {@default_connection_id, self()}
+    transport_args = {@default_connection_id}
     {:ok, connection} = Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
 
     %{connection: connection}
@@ -15,43 +16,28 @@ defmodule Janus.SessionTest do
 
   describe "Session should" do
     test "be created without error", %{connection: conn} do
-      assert {:ok, sesison} = Session.start_link(@session_id, conn)
+      assert {:ok, sesison} = Session.start_link(conn, @timeout)
     end
 
-    test "execute message by applying session_id to it", %{connection: conn} do
-      {:ok, session} = Session.start_link(@session_id, conn)
+    test "apply session_id to executed request", %{connection: conn} do
+      {:ok, session} = Session.start_link(conn, @timeout)
 
-      assert %{"session_id" => @session_id, "janus" => "keepalive"} =
-               Session.execute_request(session, %{"janus" => "keepalive"})
+      session_id = FakeTransport.default_session_id()
+
+      assert {:ok, %{"session_id" => ^session_id}} =
+               Session.execute_request(session, %{janus: :test})
     end
 
-    test "send keep-alive message via connection after timeout given by connection module", %{
-      connection: conn
-    } do
-      {:ok, _session} = Session.start_link(@session_id, conn)
+    test "send keep-alive message via connection after keep-alive interval given by connection module",
+         %{
+           connection: conn
+         } do
+      {:ok, _session} = Session.start_link(conn, @timeout)
 
-      timeout = FakeTransport.keepalive_timeout()
+      interval = FakeTransport.keepalive_interval()
+      :erlang.trace(conn, true, [:receive])
 
-      assert_receive {:message, %{"janus" => "keepalive", "session_id" => @session_id},
-                      @default_connection_id},
-                     2 * timeout
-    end
-
-    test "replaces old connection with a new one", %{connection: conn} do
-      {:ok, session} = Session.start_link(@session_id, conn)
-
-      new_connection_id = 1
-
-      transport_args = {new_connection_id, self()}
-
-      {:ok, connection} =
-        Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
-
-      Session.update_connection(session, connection)
-      timeout = FakeTransport.keepalive_timeout()
-
-      assert_receive {:message, _, ^new_connection_id}, 2 * timeout
-      refute_receive {:message, _, @default_connection_id}, 2 * timeout
+      assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
     end
   end
 end
