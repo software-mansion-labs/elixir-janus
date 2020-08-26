@@ -42,13 +42,11 @@ defmodule Janus.SessionTest do
 
     test "stop on connection exit", %{connection: conn} do
       Process.flag(:trap_exit, true)
-
       {:ok, session} = Session.start_link(conn, @timeout)
 
       Process.exit(conn, :kill)
 
-      assert_receive {:EXIT, session, {:connection, _}}, 5000
-
+      assert_receive {:EXIT, ^session, {:connection, :killed}}, 5000
     end
   end
 end

@@ -36,8 +36,17 @@ defmodule Janus.Session do
   * other - some serious error happened.
   """
   @spec start_link(Connection.t(), timeout_t()) :: {:ok, Janus.Session.t()} | {:error, any}
-  def start_link(connection, timeout \\ @default_timeout) do
-    GenServer.start_link(__MODULE__, {connection, timeout}, [])
+  def start_link(connection, timeout \\ @default_timeout),
+    do: do_start(:start_link, connection, timeout)
+
+  @doc """
+  Works the same as `start_link/2` but does not link the process.
+  """
+  @spec start(Connection.t(), timeout_t()) :: {:ok, Janus.Session.t()} | {:error, any}
+  def start(connection, timeout \\ @default_timeout), do: do_start(:start, connection, timeout)
+
+  defp do_start(method, connection, timeout) do
+    apply(GenServer, method, [__MODULE__, {connection, timeout}, []])
   end
 
   @doc """
@@ -101,8 +110,7 @@ defmodule Janus.Session do
 
   @impl true
   def init({connection, timeout}) do
-    Process.flag(:trap_exit, true)
-    Process.link(connection)
+    Process.monitor(connection)
 
     case Connection.call(connection, %{janus: :create}, timeout) do
       {:ok, %{"id" => session_id}} ->
@@ -158,7 +166,8 @@ defmodule Janus.Session do
     {:noreply, state}
   end
 
-  def handle_info({:EXIT, pid, reason}, %{connection: conn} = state) when pid == conn do
+  def handle_info({:DOWN, _ref, :process, object, reason}, %{connection: conn} = state)
+      when object == conn do
     {:stop, {:connection, reason}, state}
   end
 
