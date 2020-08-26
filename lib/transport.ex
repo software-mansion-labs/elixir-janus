@@ -26,7 +26,7 @@ defmodule Janus.Transport do
   @callback send(payload, timeout, state) :: {:ok, state} | {:error, reason, state}
 
   @doc """
-  Handles arbitrary data to be processed by transport implementation.
+  Handles messages received by connection process
 
   Main purpose is to parse messages sent to the process owner by the transport module.
 
@@ -35,7 +35,7 @@ defmodule Janus.Transport do
   * `state` - state structure contianing transport data
 
   ## Returns
-  on succes:
+  on success:
   `{:ok, state}` or `{:ok, payload, state}` if message contained payload
 
   on error:
