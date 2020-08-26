@@ -62,8 +62,7 @@ defmodule Janus.Connection do
 
   * `server` - a PID of the `Janus.Connection` process,
   * `payload` - a map that can be later safely serialized to JSON according to the
-    gateway's API but without the `transaction` key as it will be injected
-    automatically,
+    gateway's API without the `transaction` key. It will be injected automatically
   * `timeout` - a valid timeout, in milliseconds.
 
   ## Return values
