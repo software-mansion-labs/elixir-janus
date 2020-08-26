@@ -7,9 +7,8 @@ defmodule Janus.SessionTest do
   @timeout 100
 
   setup do
-    # Fake transport will send back any message received to given pid
     transport_args = {@default_connection_id}
-    {:ok, connection} = Connection.start_link(FakeTransport, transport_args, FakeHandler, [], [])
+    {:ok, connection} = Connection.start(FakeTransport, transport_args, FakeHandler, [], [])
 
     %{connection: connection}
   end
@@ -41,12 +40,11 @@ defmodule Janus.SessionTest do
     end
 
     test "stop on connection exit", %{connection: conn} do
-      Process.flag(:trap_exit, true)
-      {:ok, session} = Session.start_link(conn, @timeout)
-
+      {:ok, session} = Session.start(conn, @timeout)
+      Process.monitor(session)
       Process.exit(conn, :kill)
 
-      assert_receive {:EXIT, ^session, {:connection, :killed}}, 5000
+      assert_receive {:DOWN, _ref, :process, ^session, {:connection, :killed}}, 5000
     end
   end
 end

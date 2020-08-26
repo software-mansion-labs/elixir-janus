@@ -116,7 +116,7 @@ defmodule Janus.Session do
       {:ok, %{"id" => session_id}} ->
         state = %{session_id: session_id, connection: connection}
 
-        interval = Janus.Connection.get_transport_module(connection).keepalive_interval()
+        interval = Connection.get_transport_module(connection).keepalive_interval()
 
         state =
           case interval do

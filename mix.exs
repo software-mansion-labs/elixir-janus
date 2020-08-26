@@ -25,7 +25,8 @@ defmodule Janus.MixProject do
     [
       {:bunch, "~> 1.3"},
       {:ex2ms, "~> 1.0"},
-      {:jason, "~> 1.2", only: :test}
+      {:jason, "~> 1.2", only: :test},
+      {:ex_doc, "~> 0.22", only: [:test, :dev], runtime: false}
     ]
   end
 end

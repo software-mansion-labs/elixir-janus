@@ -41,12 +41,30 @@ defmodule Janus.Connection do
   Returns the same values as `GenServer.start_link/3`.
   """
   @spec start_link(module, any, module, any, GenServer.options()) :: GenServer.on_start()
-  def start_link(transport_module, transport_args, handler_module, handler_args, options \\ []) do
-    GenServer.start_link(
+  def start_link(transport_module, transport_args, handler_module, handler_args, options \\ []),
+    do:
+      do_start(
+        :start_link,
+        transport_module,
+        transport_args,
+        handler_module,
+        handler_args,
+        options
+      )
+
+  @doc """
+  Works the same as `start_link/5` but does not link with the calling process.
+  """
+  @spec start(module, any, module, any, GenServer.options()) :: GenServer.on_start()
+  def start(transport_module, transport_args, handler_module, handler_args, options \\ []),
+    do: do_start(:start, transport_module, transport_args, handler_module, handler_args, options)
+
+  defp do_start(method, transport_module, transport_args, handler_module, handler_args, options) do
+    apply(GenServer, method, [
       __MODULE__,
       {transport_module, transport_args, handler_module, handler_args},
       options
-    )
+    ])
   end
 
   @doc """
