@@ -17,18 +17,18 @@ defmodule Janus.Connection.TransactionTest do
     std_offset: 0,
     time_zone: "Etc/UTC"
   }
+  @test_transaction "A very unique string"
 
   setup do
-    table = Transaction.init_transaction_call_table()
-    transaction = Transaction.generate_transaction!(table)
+    table = Transaction.init_transaction_call_table(__MODULE__)
+    # TODO: Add cleanup
 
-    [table: table, transaction: transaction]
+    [table: table]
   end
 
   describe "Handles response for up to date request" do
-    setup %{table: table, transaction: transaction} do
-      Transaction.insert_transaction(table, transaction, from(), 10000)
-      []
+    setup %{table: table} do
+      [transaction: Transaction.insert_transaction(table, from(), 10000)]
     end
 
     test "when result is a success", %{table: table, transaction: transaction} do
@@ -57,23 +57,23 @@ defmodule Janus.Connection.TransactionTest do
   end
 
   describe "Handles response when" do
-    test "request is outdated", %{table: table, transaction: transaction} do
+    test "request is outdated", %{table: table} do
       # Deliberetely inserting outdated record
-      :ets.insert(table, {transaction, from(), 0})
+      :ets.insert(table, {@test_transaction, from(), 0})
 
       logs =
         capture_log(fn ->
-          Transaction.handle_transaction({:ok, %{}}, transaction, table)
+          Transaction.handle_transaction({:ok, %{}}, @test_transaction, table)
         end)
 
       refute_receive _
       assert logs =~ "Received OK reply to the outdated call"
     end
 
-    test "when request is unkown", %{table: table, transaction: transaction} do
+    test "when request is unkown", %{table: table} do
       logs =
         capture_log(fn ->
-          Transaction.handle_transaction({:ok, %{}}, transaction, table)
+          Transaction.handle_transaction({:ok, %{}}, @test_transaction, table)
         end)
 
       refute_receive _
@@ -82,28 +82,21 @@ defmodule Janus.Connection.TransactionTest do
   end
 
   describe "insert_transaction adds new transaction" do
-    test "with proper expiration time", %{table: table, transaction: transaction} do
-      Transaction.insert_transaction(table, transaction, from(), @timeout, @now)
+    test "with proper expiration time", %{table: table} do
+      transaction = Transaction.insert_transaction(table, from(), @timeout, @now)
 
       expires =
         @now
         |> DateTime.add(@timeout, :millisecond)
         |> DateTime.to_unix(:millisecond)
 
-      case :ets.lookup(table, transaction) do
-        [{_, _, expires_at}] ->
-          assert expires == expires_at
-
-        _ ->
-          raise "Transaction has not been added!"
-      end
+      assert [{_, _, ^expires}] = :ets.lookup(table, transaction)
     end
   end
 
   describe "transaction_status returns" do
-    setup %{table: table, transaction: transaction} do
-      Transaction.insert_transaction(table, transaction, from(), @timeout, @now)
-      []
+    setup %{table: table} do
+      [transaction: Transaction.insert_transaction(table, from(), @timeout, @now)]
     end
 
     test ":ok tuple if transaction is up to date", %{table: table, transaction: transaction} do
@@ -113,23 +106,23 @@ defmodule Janus.Connection.TransactionTest do
 
     test ":outdated error if transaction expired", %{table: table, transaction: transaction} do
       future = @now |> DateTime.add(@timeout + 1, :millisecond)
+
       assert {:error, :outdated} = Transaction.transaction_status(table, transaction, future)
     end
 
     test ":unkown error if transaction hadn't been registered", %{table: table} do
-      transaction = Transaction.generate_transaction!(table)
+      transaction = "Unkown unique string"
       assert {:error, :unknown} == Transaction.transaction_status(table, transaction)
     end
   end
 
   describe "cleanup_old_transaction" do
-    setup %{table: table, transaction: first_transaction} do
+    setup %{table: table} do
       first_timeout = @timeout
-      Transaction.insert_transaction(table, first_transaction, from(), first_timeout, @now)
+      Transaction.insert_transaction(table, from(), first_timeout, @now)
 
-      next_transaction = Transaction.generate_transaction!(table)
       next_timeout = first_timeout + @timeout
-      Transaction.insert_transaction(table, next_transaction, from(), next_timeout, @now)
+      Transaction.insert_transaction(table, from(), next_timeout, @now)
 
       [first_timeout: first_timeout, next_timeout: next_timeout]
     end

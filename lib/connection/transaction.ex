@@ -4,14 +4,35 @@ defmodule Janus.Connection.Transaction do
   @transaction_length 32
 
   require Logger
+  # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
+  # See https://www.phoenixframework.org/blog/the-road-to-2-million-websocket-connections
   @spec init_transaction_call_table(atom()) :: :ets.tab()
   def init_transaction_call_table(pending_calls_table \\ :pending_calls) do
     :ets.new(pending_calls_table, [:duplicate_bag, :private])
   end
 
+  @spec insert_transaction(:ets.tab(), GenServer.from(), integer, DateTime.t()) :: binary
+  def insert_transaction(
+        pending_calls_table,
+        from,
+        timeout,
+        timestamp \\ DateTime.utc_now()
+      ) do
+    transaction = generate_transaction!(pending_calls_table)
+
+    expires_at =
+      timestamp
+      |> DateTime.add(timeout, :millisecond)
+      |> DateTime.to_unix(:millisecond)
+
+    # Maybe insert new instead
+    :ets.insert_new(pending_calls_table, {transaction, from, expires_at})
+    transaction
+  end
+
   # Generates a transaction ID for the payload and ensures that it is unused
   @spec generate_transaction!(:ets.tab()) :: binary
-  def generate_transaction!(pending_calls_table) do
+  defp generate_transaction!(pending_calls_table) do
     transaction = :crypto.strong_rand_bytes(@transaction_length) |> Base.encode64()
 
     case :ets.lookup(pending_calls_table, transaction) do
@@ -21,23 +42,6 @@ defmodule Janus.Connection.Transaction do
       _ ->
         generate_transaction!(pending_calls_table)
     end
-  end
-
-  @spec insert_transaction(:ets.tab(), binary, GenServer.from(), integer, DateTime.t()) :: true
-  def insert_transaction(
-        pending_calls_table,
-        transaction,
-        from,
-        timeout,
-        timestamp \\ DateTime.utc_now()
-      ) do
-    expires_at =
-      timestamp
-      |> DateTime.add(timeout, :millisecond)
-      |> DateTime.to_unix(:millisecond)
-
-    # Maybe insert new instead
-    :ets.insert(pending_calls_table, {transaction, from, expires_at})
   end
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::

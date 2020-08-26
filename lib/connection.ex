@@ -95,8 +95,6 @@ defmodule Janus.Connection do
 
     withl handler: {:ok, handler_state} <- handler_module.init(handler_args),
           connect: {:ok, transport_state} <- transport_module.connect(transport_args) do
-      # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
-      # See https://www.phoenixframework.org/blog/the-road-to-2-million-websocket-connections
       pending_calls_table = Transaction.init_transaction_call_table()
 
       Process.send_after(self(), :cleanup, @cleanup_interval)
@@ -128,18 +126,16 @@ defmodule Janus.Connection do
           pending_calls_table: pending_calls_table
         ) = s
       ) do
-    transaction = Transaction.generate_transaction!(pending_calls_table)
+    transaction = Transaction.insert_transaction(pending_calls_table, from, timeout)
+    payload_with_transaction = Map.put(payload, :transaction, transaction)
 
     "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{
       inspect(payload)
     }"
     |> Logger.debug()
 
-    payload_with_transaction = Map.put(payload, :transaction, transaction)
-
     case transport_module.send(payload_with_transaction, timeout, transport_state) do
       {:ok, new_transport_state} ->
-        Transaction.insert_transaction(pending_calls_table, transaction, from, timeout)
         {:noreply, state(s, transport_state: new_transport_state)}
 
       {:error, reason} ->
