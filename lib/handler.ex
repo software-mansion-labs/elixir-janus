@@ -98,6 +98,16 @@ defmodule Janus.Handler do
           ),
           do: {:noreply, state}
 
+      def handle_webrtc_down(
+            _session_id,
+            _plugin_handle_id,
+            _emitter,
+            _opaque_id,
+            _timestamp,
+            state
+          ),
+          do: {:noreply, state}
+
       def handle_audio_receiving(
             _session_id,
             _plugin_handle_id,
