@@ -118,15 +118,11 @@ defmodule Janus.Session do
 
         interval = Connection.get_transport_module(connection).keepalive_interval()
 
-        state =
-          case interval do
-            nil ->
-              state
+        state = Map.put(state, :keepalive_interval, interval)
 
-            interval ->
-              Process.send_after(self(), :keep_alive, interval)
-              Map.put(state, :keepalive_interval, interval)
-          end
+        unless is_nil(interval) do
+          Process.send_after(self(), :keep_alive, interval)
+        end
 
         {:ok, state}
 
