@@ -1,16 +1,18 @@
 defmodule Janus.Connection.Transaction do
   @moduledoc false
 
+  @transaction_length 32
+
   require Logger
-  @spec init_transaction_call_table() :: :ets.tab()
-  def init_transaction_call_table() do
-    :ets.new(:pending_calls, [:duplicate_bag, :private])
+  @spec init_transaction_call_table(atom()) :: :ets.tab()
+  def init_transaction_call_table(pending_calls_table \\ :pending_calls) do
+    :ets.new(pending_calls_table, [:duplicate_bag, :private])
   end
 
   # Generates a transaction ID for the payload and ensures that it is unused
   @spec generate_transaction!(:ets.tab()) :: binary
   def generate_transaction!(pending_calls_table) do
-    transaction = :crypto.strong_rand_bytes(32) |> Base.encode64()
+    transaction = :crypto.strong_rand_bytes(@transaction_length) |> Base.encode64()
 
     case :ets.lookup(pending_calls_table, transaction) do
       [] ->
