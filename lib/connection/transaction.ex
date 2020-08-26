@@ -83,7 +83,7 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  @spec handle_transaction({:ok, any} | {:error, any, any}, binary, atom | :ets.tid()) :: :ok
+  @spec handle_transaction({:ok, any} | {:error, any}, binary, :ets.tab()) :: :ok
   def handle_transaction(response, transaction, pending_calls_table) do
     transaction_status = transaction_status(pending_calls_table, transaction)
 

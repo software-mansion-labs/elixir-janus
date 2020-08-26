@@ -203,11 +203,8 @@ defmodule Janus.Connection do
          },
          state(pending_calls_table: pending_calls_table) = state
        ) do
-    Transaction.handle_transaction(
-      {:error, {:gateway, code, reason}},
-      transaction,
-      pending_calls_table
-    )
+    result = {:error, {:gateway, code, reason}}
+    Transaction.handle_transaction(result, transaction, pending_calls_table)
 
     {:ok, state}
   end
