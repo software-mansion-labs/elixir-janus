@@ -45,7 +45,7 @@ defmodule Janus.Transport do
               {:ok, state} | {:ok, payload, state} | {:error, reason, state}
 
   @doc """
-  Indicates whether given transport requires keepalive messages, if so provides necessary timeout.
+  Provides time interval in which the keep-alive messages should be sent. `nil` indicates such messages are not needed
   """
-  @callback keepalive_timeout() :: timeout | nil
+  @callback keepalive_interval() :: timeout() | nil
 end

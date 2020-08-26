@@ -61,7 +61,7 @@ defmodule Janus.Session do
   end
 
   @doc """
-  Synchronously attaches a plugin to the session on the gateway.
+  Synchronously attaches to a plugin via session on the gateway.
 
   ## Arguments
 
@@ -127,7 +127,7 @@ defmodule Janus.Session do
 
   ## Return values
 
-  Returns :ok atom.
+  Returns an `:ok` atom.
   """
   @spec update_connection(Janus.Session.t(), connection_t()) :: :ok
   def update_connection(session, connection) do
