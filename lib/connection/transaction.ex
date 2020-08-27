@@ -63,7 +63,7 @@ defmodule Janus.Connection.Transaction do
   defp generate_transaction!(_, 0), do: raise("Could not generate transaction!")
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
-          {:error, :outdated | :unknown} | {:ok, GenServer.from()}
+          {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}
   def transaction_status(pending_calls_table, transaction, timestamp \\ DateTime.utc_now()) do
     case :ets.lookup(pending_calls_table, transaction) do
       [{_transaction, from, expires_at}] ->
@@ -74,7 +74,7 @@ defmodule Janus.Connection.Transaction do
         end
 
       [] ->
-        {:error, :unknown}
+        {:error, :unknown_transaction}
     end
   end
 
@@ -113,7 +113,7 @@ defmodule Janus.Connection.Transaction do
       {:error, :outdated} ->
         :ets.delete(pending_calls_table, transaction)
 
-      _ ->
+      {:error, :unknown_transaction} ->
         # NOOP
         nil
     end

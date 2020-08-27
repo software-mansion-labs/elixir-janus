@@ -77,7 +77,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       refute_receive _
-      assert logs =~ "Received OK reply to the unknown call"
+      assert logs =~ "Received OK reply to the unknown_transaction call"
     end
   end
 
@@ -118,7 +118,7 @@ defmodule Janus.Connection.TransactionTest do
 
     test ":unkown error if transaction hadn't been registered", %{table: table} do
       transaction = "Unkown unique string"
-      assert {:error, :unknown} == Transaction.transaction_status(table, transaction)
+      assert {:error, :unknown_transaction} == Transaction.transaction_status(table, transaction)
     end
   end
 
