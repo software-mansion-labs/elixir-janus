@@ -20,47 +20,59 @@ defmodule Janus.Connection.Transaction do
         from,
         timeout,
         timestamp \\ DateTime.utc_now(),
-        tries \\ @insert_tries
+        tries \\ @insert_tries,
+        transaction_generator \\ &:crypto.strong_rand_bytes/1
       )
 
-  def insert_transaction(pending_calls_table, from, timeout, timestamp, tries)
+  def insert_transaction(
+        pending_calls_table,
+        from,
+        timeout,
+        timestamp,
+        tries,
+        transaction_generator
+      )
       when tries > 0 do
-    transaction = generate_transaction!(pending_calls_table)
+    transaction =
+      generate_transaction!(pending_calls_table, transaction_generator, @generate_tries)
 
     expires_at =
       timestamp
       |> DateTime.add(timeout, :millisecond)
       |> DateTime.to_unix(:millisecond)
 
-    # Maybe insert new instead
-
     if :ets.insert_new(pending_calls_table, {transaction, from, expires_at}) do
       transaction
     else
-      insert_transaction(pending_calls_table, from, timeout, timestamp, tries - 1)
+      insert_transaction(
+        pending_calls_table,
+        from,
+        timeout,
+        timestamp,
+        tries - 1,
+        transaction_generator
+      )
     end
   end
 
-  def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0),
+  def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0, _generator),
     do: raise("Could not insert transaction")
 
   # Generates a transaction ID for the payload and ensures that it is unused
-  @spec generate_transaction!(:ets.tab()) :: binary
-  defp generate_transaction!(pending_calls_table, tries \\ @generate_tries)
-
-  defp generate_transaction!(pending_calls_table, tries) when tries > 0 do
-    transaction = :crypto.strong_rand_bytes(@transaction_length) |> Base.encode64()
+  @spec generate_transaction!(:ets.tab(), (non_neg_integer -> binary), non_neg_integer) :: binary
+  defp generate_transaction!(pending_calls_table, transaction_generator, tries) when tries > 0 do
+    transaction = transaction_generator.(@transaction_length) |> Base.encode64()
 
     case :ets.lookup(pending_calls_table, transaction) do
       [] ->
         transaction
 
       _ ->
-        generate_transaction!(pending_calls_table, tries - 1)
+        generate_transaction!(pending_calls_table, transaction_generator, tries - 1)
     end
   end
 
-  defp generate_transaction!(_, 0), do: raise("Could not generate transaction!")
+  defp generate_transaction!(_, _, 0), do: raise("Could not generate transaction!")
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
           {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}
