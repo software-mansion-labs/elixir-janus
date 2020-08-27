@@ -21,7 +21,6 @@ defmodule Janus.Connection.TransactionTest do
 
   setup do
     table = Transaction.init_transaction_call_table(__MODULE__)
-    # TODO: Add cleanup
 
     [table: table]
   end
