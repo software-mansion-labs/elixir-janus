@@ -171,7 +171,7 @@ defmodule Janus.Connection do
 
     case transport_module.send(payload_with_transaction, timeout, transport_state) do
       {:ok, new_transport_state} ->
-        {:noreply, state(s, transport_state: new_transport_state)}
+        {:noreply, state(state, transport_state: new_transport_state)}
 
       {:error, reason} ->
         "[#{__MODULE__} #{inspect(self())}] Transport send error: reason = #{inspect(reason)}"
@@ -237,7 +237,7 @@ defmodule Janus.Connection do
     Transaction.handle_transaction({:ok, data}, transaction, pending_calls_table)
     {:ok, state}
   end
-  
+
   defp handle_payload(
          %{"janus" => "ack", "transaction" => transaction} = payload,
          state(pending_calls_table: pending_calls_table) = state
