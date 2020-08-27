@@ -10,6 +10,8 @@ defmodule Janus.Connection do
   @default_timeout 5000
   @cleanup_interval 60000
 
+  @type t :: GenServer.server()
+
   Record.defrecordp(:state,
     transport_module: nil,
     transport_state: nil,
@@ -25,15 +27,15 @@ defmodule Janus.Connection do
 
   ## Arguments
 
-  * `transport_module` - a module that implements `Wembrane.Gateway.Transport`
+  * `transport_module` - a module that implements `Janus.Transport`
     behaviour, responsible for handling the actual data flow to and from
     the gateway,
   * `transport_args` - a transport module-specific argument that will be
-    passed to the `c:Wembrane.Gateway.Transport.connect/1` callback.
-  * `handler_module` - a module that implements `Wembrane.Gateway.Handler`
+    passed to the `c:Janus.Transport.connect/1` callback.
+  * `handler_module` - a module that implements `Janus.Handler`
     behaviour, responsible for handling the callbacks sent from the gateway,
   * `handler_args` - a handler module-specific argument that will be
-    passed to the `c:Wembrane.Gateway.Handler.init/1` callback.
+    passed to the `c:Janus.Handler.init/1` callback.
   * `options` - process options, as in `GenServer.start_link/3`.
 
   ## Return values
@@ -41,12 +43,30 @@ defmodule Janus.Connection do
   Returns the same values as `GenServer.start_link/3`.
   """
   @spec start_link(module, any, module, any, GenServer.options()) :: GenServer.on_start()
-  def start_link(transport_module, transport_args, handler_module, handler_args, options \\ []) do
-    GenServer.start_link(
+  def start_link(transport_module, transport_args, handler_module, handler_args, options \\ []),
+    do:
+      do_start(
+        :start_link,
+        transport_module,
+        transport_args,
+        handler_module,
+        handler_args,
+        options
+      )
+
+  @doc """
+  Works the same as `start_link/5` but does not link with the calling process.
+  """
+  @spec start(module, any, module, any, GenServer.options()) :: GenServer.on_start()
+  def start(transport_module, transport_args, handler_module, handler_args, options \\ []),
+    do: do_start(:start, transport_module, transport_args, handler_module, handler_args, options)
+
+  defp do_start(method, transport_module, transport_args, handler_module, handler_args, options) do
+    apply(GenServer, method, [
       __MODULE__,
       {transport_module, transport_args, handler_module, handler_args},
       options
-    )
+    ])
   end
 
   @doc """
@@ -60,10 +80,9 @@ defmodule Janus.Connection do
 
   ## Arguments
 
-  * `server` - a PID of the `Wembrane.Gateway.Connection` process,
+  * `server` - a PID of the `Janus.Connection` process,
   * `payload` - a map that can be later safely serialized to JSON according to the
-    gateway's API but without the `transaction` key as it will be injected
-    automatically,
+    gateway's API without the `transaction` key. It will be injected automatically
   * `timeout` - a valid timeout, in milliseconds.
 
   ## Return values
@@ -81,6 +100,22 @@ defmodule Janus.Connection do
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
   def call(server, payload, timeout \\ @default_timeout) do
     GenServer.call(server, {:call, payload, timeout}, timeout)
+  end
+
+  @doc """
+  Returns transport module.
+  """
+  @spec get_transport_module(Genserver.server()) :: any
+  def get_transport_module(server) do
+    GenServer.call(server, {:get_module, :transport})
+  end
+
+  @doc """
+  Returns handler module.
+  """
+  @spec get_handler_module(Genserver.server()) :: any
+  def get_handler_module(server) do
+    GenServer.call(server, {:get_module, :handler})
   end
 
   # Callbacks
@@ -124,7 +159,7 @@ defmodule Janus.Connection do
           transport_module: transport_module,
           transport_state: transport_state,
           pending_calls_table: pending_calls_table
-        ) = s
+        ) = state
       ) do
     transaction = Transaction.insert_transaction(pending_calls_table, from, timeout)
     payload_with_transaction = Map.put(payload, :transaction, transaction)
@@ -143,15 +178,24 @@ defmodule Janus.Connection do
         |> Logger.error()
 
         # TODO check if this is correct return value
-        {:stop, {:call, reason}, s}
+        {:stop, {:call, reason}, state}
     end
+  end
+
+  def handle_call({:get_module, :transport}, _from, state(transport_module: module) = state) do
+    {:reply, module, state}
+  end
+
+  def handle_call({:get_module, :handler}, _from, state(handler_module: module) = state) do
+    {:reply, module, state}
   end
 
   @impl true
   def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
     Transaction.cleanup_old_transactions(pending_calls_table)
+
     Process.send_after(self(), :cleanup, @cleanup_interval)
-    {:noreply, s}
+    {:noreply, state}
   end
 
   def handle_info(
@@ -191,6 +235,14 @@ defmodule Janus.Connection do
        ) do
     data = response["data"] || response["plugindata"]["data"]
     Transaction.handle_transaction({:ok, data}, transaction, pending_calls_table)
+    {:ok, state}
+  end
+  
+  defp handle_payload(
+         %{"janus" => "ack", "transaction" => transaction} = payload,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    Transaction.handle_transaction({:ok, %{"janus" => "ack"}}, transaction, pending_calls_table)
     {:ok, state}
   end
 
