@@ -95,7 +95,7 @@ defmodule Janus.Connection.Transaction do
 
       count ->
         "[#{__MODULE__} #{inspect(self())}] Cleanup: cleaned up #{count} outdated transaction(s)"
-        |> Logger.debug()
+        |> Logger.warn()
 
         true
     end
