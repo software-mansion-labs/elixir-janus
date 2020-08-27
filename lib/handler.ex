@@ -1,60 +1,65 @@
 defmodule Janus.Handler do
-  alias Janus.Interface
+  @type session_id :: pos_integer
+  @type plugin_handle_id :: pos_integer
+  @type opaque_id :: String.t()
+  @type emitter :: String.t()
+  @type plugin :: String.t()
+  @type transport :: map
 
   @type state :: any
 
   @callback init(any) :: {:ok, state} | {:error, any}
   @callback handle_created(
-              Interface.session_id(),
-              Interface.transport(),
-              Interface.emitter(),
+              session_id(),
+              transport(),
+              emitter(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
-  @callback handle_timeout(Interface.session_id(), state) :: {:noreply, state}
+  @callback handle_timeout(session_id(), state) :: {:noreply, state}
   @callback handle_attached(
-              Interface.session_id(),
-              Interface.plugin(),
-              Interface.plugin_handle_id(),
-              Interface.emitter(),
-              Interface.opaque_id(),
+              session_id(),
+              plugin(),
+              plugin_handle_id(),
+              emitter(),
+              opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
-  @callback handle_detached(Interface.session_id(), Interface.plugin_handle_id(), state) ::
+  @callback handle_detached(session_id(), Interface.plugin_handle_id(), state) ::
               {:noreply, state}
   @callback handle_webrtc_up(
-              Interface.session_id(),
-              Interface.plugin_handle_id(),
-              Interface.emitter(),
-              Interface.opaque_id(),
+              session_id(),
+              plugin_handle_id(),
+              emitter(),
+              opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   @callback handle_webrtc_down(
-              Interface.session_id(),
-              Interface.plugin_handle_id(),
-              Interface.emitter(),
-              Interface.opaque_id(),
+              session_id(),
+              plugin_handle_id(),
+              emitter(),
+              opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   @callback handle_audio_receiving(
-              Interface.session_id(),
-              Interface.plugin_handle_id(),
-              Interface.emitter(),
-              Interface.opaque_id(),
+              session_id(),
+              plugin_handle_id(),
+              emitter(),
+              opaque_id(),
               boolean,
               DateTime.t(),
               state
             ) :: {:noreply, state}
   @callback handle_video_receiving(
-              Interface.session_id(),
-              Interface.plugin_handle_id(),
-              Interface.emitter(),
-              Interface.opaque_id(),
+              session_id(),
+              plugin_handle_id(),
+              emitter(),
+              opaque_id(),
               boolean,
               DateTime.t(),
               state

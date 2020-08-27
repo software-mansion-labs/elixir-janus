@@ -505,17 +505,13 @@ defmodule Janus.Connection do
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
          state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
-    Logger.debug(
-      "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
+    Logger.warn(
+      "[#{__MODULE__} #{inspect(self())}] Received unknown event: emitter = #{inspect(emitter)}, event = #{
         inspect(event)
       }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
     )
 
     {:ok, s}
-    # case handler_module.handle_detached(session_id, sender, handler_state) do
-    #   {:noreply, new_handler_state} ->
-    #     {:ok, state(s, handler_state: new_handler_state)}
-    # end
   end
 
   # Payloads related to the events might come batched in lists, handle them recusively
