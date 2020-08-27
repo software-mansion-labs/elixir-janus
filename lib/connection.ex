@@ -1,7 +1,14 @@
 defmodule Janus.Connection do
+  @moduledoc """
+  Creates and keeps active connection with Janus Gateway, sends and
+  handles messages specific to the gateway and its plugins.
+
+  Module can take advantage of different transports and handler modules.
+  All the interaction is done via `Janus.Connection.call/3` function.
+  """
+
   use GenServer
   use Bunch
-  # use Bitwise
   require Record
   require Logger
 
@@ -21,7 +28,7 @@ defmodule Janus.Connection do
   @doc """
   Starts the new connection to the gateway and links it to the current
   process. The connection is transport-agnostic. The gateway supports
-  multiple means of accesing its API and this module can use any of them.
+  multiple means of accessing its API and this module can use any of them.
 
   ## Arguments
 
@@ -92,7 +99,7 @@ defmodule Janus.Connection do
 
   The reason might be:
 
-  * `{:gateway, code, info}` - it means that the call itself succeded but the
+  * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info.
   """
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
@@ -518,7 +525,7 @@ defmodule Janus.Connection do
     # end
   end
 
-  # Payloads related to the events might come batched in lists, handle them recusively
+  # Payloads related to the events might come batched in lists, handle them recursively
   defp handle_payload([head | tail], s) do
     case handle_payload(head, s) do
       {:ok, new_state} ->
