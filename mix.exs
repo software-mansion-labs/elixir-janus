@@ -44,7 +44,7 @@ defmodule Elixir.Janus.MixProject do
 
   defp package do
     [
-      maintainers: ["ElixirJanus Team"],
+      maintainers: ["Software Mansion Team"],
       licenses: ["Apache 2.0"],
       links: %{
         "GitHub" => @github_url
