@@ -88,11 +88,14 @@ defmodule FakeHandler do
     end
   end
 
+  @impl true
   def handle_timeout(_session_id, state), do: {:noreply, %{state | callback: :handle_timeout}}
 
+  @impl true
   def handle_created(_session_id, _transport, _emitter, _timestamp, state),
     do: {:noreply, %{state | callback: :handle_created}}
 
+  @impl true
   def handle_attached(
         _session_id,
         _plugin,
@@ -104,9 +107,11 @@ defmodule FakeHandler do
       ),
       do: {:noreply, %{state | callback: :handle_attached}}
 
+  @impl true
   def handle_detached(_session_id, _plugin_handle_id, state),
     do: {:noreply, %{state | callback: :handle_detached}}
 
+  @impl true
   def handle_webrtc_up(
         _session_id,
         _plugin_handle_id,
@@ -117,6 +122,7 @@ defmodule FakeHandler do
       ),
       do: {:noreply, %{state | callback: :handle_webrtc_up}}
 
+  @impl true
   def handle_webrtc_down(
         _session_id,
         _plugin_handle_id,
@@ -127,6 +133,7 @@ defmodule FakeHandler do
       ),
       do: {:noreply, %{state | callback: :handle_webrtc_down}}
 
+  @impl true
   def handle_audio_receiving(
         _session_id,
         _plugin_handle_id,
@@ -138,6 +145,7 @@ defmodule FakeHandler do
       ),
       do: {:noreply, %{state | callback: :handle_audio_receiving}}
 
+  @impl true
   def handle_video_receiving(
         _session_id,
         _plugin_handle_id,
