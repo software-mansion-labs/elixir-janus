@@ -1,4 +1,4 @@
-defmodule HandlerHelper do
+defmodule Janus.ConnectionTest.Helper do
   alias Janus.Connection
   alias FakeHandler.Payloads
 

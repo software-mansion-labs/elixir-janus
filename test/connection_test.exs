@@ -1,10 +1,6 @@
-defmodule Janus.HandlerTest do
+defmodule Janus.ConnectionTest do
   use ExUnit.Case
-  use Bunch
-  alias Janus.Connection
-  alias FakeHandler.Payloads
-
-  import HandlerHelper
+  import Janus.ConnectionTest.Helper
 
   defmodule SimpleTransport do
     def handle_info(message, state) do

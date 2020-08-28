@@ -2,7 +2,6 @@ defmodule Janus.SessionTest do
   use ExUnit.Case
   alias Janus.{Session, Connection}
 
-  @session_id 1
   @default_connection_id 0
   @timeout 100
 
@@ -15,7 +14,7 @@ defmodule Janus.SessionTest do
 
   describe "Session should" do
     test "be created without error", %{connection: conn} do
-      assert {:ok, sesison} = Session.start_link(conn, @timeout)
+      assert {:ok, session} = Session.start_link(conn, @timeout)
     end
 
     test "apply session_id to executed request", %{connection: conn} do
@@ -39,6 +38,7 @@ defmodule Janus.SessionTest do
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
     end
 
+    @moduletag :capture_log
     test "stop on connection exit", %{connection: conn} do
       {:ok, session} = Session.start(conn, @timeout)
       Process.monitor(session)
