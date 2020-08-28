@@ -1,54 +1,53 @@
 defmodule Janus.Handler do
-  @type session_id :: pos_integer
-  @type plugin_handle_id :: pos_integer
+  alias Janus.Session
+
   @type opaque_id :: String.t()
   @type emitter :: String.t()
-  @type plugin :: String.t()
   @type transport :: map
 
   @type state :: any
 
   @callback init(any) :: {:ok, state} | {:error, any}
   @callback handle_created(
-              session_id(),
+              Session.session_id_t(),
               transport(),
               emitter(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
-  @callback handle_timeout(session_id(), state) :: {:noreply, state}
+  @callback handle_timeout(Session.session_id_t(), state) :: {:noreply, state}
   @callback handle_attached(
-              session_id(),
-              plugin(),
-              plugin_handle_id(),
+              Session.session_id_t(),
+              Session.plugin_t(),
+              Session.plugin_handle_id(),
               emitter(),
               opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
-  @callback handle_detached(session_id(), Interface.plugin_handle_id(), state) ::
+  @callback handle_detached(Session.session_id_t(), Session.plugin_handle_id(), state) ::
               {:noreply, state}
   @callback handle_webrtc_up(
-              session_id(),
-              plugin_handle_id(),
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
               emitter(),
               opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   @callback handle_webrtc_down(
-              session_id(),
-              plugin_handle_id(),
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
               emitter(),
               opaque_id(),
               DateTime.t(),
               state
             ) :: {:noreply, state}
   @callback handle_audio_receiving(
-              session_id(),
-              plugin_handle_id(),
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
               emitter(),
               opaque_id(),
               boolean,
@@ -56,8 +55,8 @@ defmodule Janus.Handler do
               state
             ) :: {:noreply, state}
   @callback handle_video_receiving(
-              session_id(),
-              plugin_handle_id(),
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
               emitter(),
               opaque_id(),
               boolean,

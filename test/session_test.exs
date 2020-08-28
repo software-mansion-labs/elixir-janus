@@ -1,6 +1,7 @@
 defmodule Janus.SessionTest do
   use ExUnit.Case
   alias Janus.{Session, Connection}
+  alias Janus.HandlerTest.FakeHandler
 
   @default_connection_id 0
   @timeout 100
@@ -38,7 +39,7 @@ defmodule Janus.SessionTest do
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
     end
 
-    @moduletag :capture_log
+    @tag :capture_log
     test "stop on connection exit", %{connection: conn} do
       {:ok, session} = Session.start(conn, @timeout)
       Process.monitor(session)

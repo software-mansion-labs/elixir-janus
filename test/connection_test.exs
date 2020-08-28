@@ -1,17 +1,6 @@
 defmodule Janus.ConnectionTest do
   use ExUnit.Case
-  import Janus.ConnectionTest.Helper
-
-  defmodule SimpleTransport do
-    def handle_info(message, state) do
-      {:ok, message, state}
-    end
-  end
-
-  setup do
-    state = {:state, SimpleTransport, %{}, FakeHandler, %{callback: nil}, nil}
-    [state: state]
-  end
+  import Janus.HandlerTest.CallbackHelper
 
   describe "Connection should call handler's" do
     # check if all callbacks are called for their respective events

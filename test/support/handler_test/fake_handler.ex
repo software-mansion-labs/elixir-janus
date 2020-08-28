@@ -1,4 +1,4 @@
-defmodule FakeHandler do
+defmodule Janus.HandlerTest.FakeHandler do
   # fake handler that updates state with currently invoked callback
   use Janus.Handler
 
@@ -87,6 +87,9 @@ defmodule FakeHandler do
       %{"janus" => "detached", "session_id" => @session_id, "sender" => @plugin_handle_id}
     end
   end
+
+  @impl true
+  def init(_), do: {:ok, %{callback: nil}}
 
   @impl true
   def handle_timeout(_session_id, state), do: {:noreply, %{state | callback: :handle_timeout}}
