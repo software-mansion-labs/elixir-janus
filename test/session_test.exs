@@ -1,6 +1,7 @@
 defmodule Janus.SessionTest do
   use ExUnit.Case
   alias Janus.{Session, Connection}
+  alias Janus.HandlerTest.FakeHandler
 
   @default_connection_id 0
   @timeout 100
@@ -14,7 +15,7 @@ defmodule Janus.SessionTest do
 
   describe "Session should" do
     test "be created without error", %{connection: conn} do
-      assert {:ok, sesison} = Session.start_link(conn, @timeout)
+      assert {:ok, session} = Session.start_link(conn, @timeout)
     end
 
     test "apply session_id to executed request", %{connection: conn} do
