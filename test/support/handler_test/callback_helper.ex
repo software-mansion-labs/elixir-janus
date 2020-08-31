@@ -27,7 +27,7 @@ defmodule Janus.HandlerTest.CallbackHelper do
         {:noreply, new_state} = Connection.handle_info(message, state)
         {:state, _, _, _, %{callback: callback}, _} = new_state
 
-        assert unquote(fun) = callback
+        assert unquote(fun) == callback
       end
     end
   end
