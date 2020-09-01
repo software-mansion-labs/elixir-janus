@@ -518,7 +518,39 @@ defmodule Janus.Connection do
     # end
   end
 
-  # Payloads related to the events might come batched in lists, handle them recusively
+  # Monitor/Admin API payloads
+
+  ## Handle list_sessions payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "sessions" => sessions},
+         state
+       ) do
+    handle_successful_payload(transaction, sessions, state)
+  end
+
+  ## Handle list_handles payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "handles" => handles},
+         state
+       ) do
+    handle_successful_payload(transaction, handles, state)
+  end
+
+  ## Handle handle_info payload
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "session_id" => _session_id,
+           "handle_id" => _handle_id,
+           "info" => info
+         },
+         state
+       ) do
+    handle_successful_payload(transaction, info, state)
+  end
+
+  # Payloads related to the events might come batched in lists, handle them recursively
   defp handle_payload([head | tail], s) do
     case handle_payload(head, s) do
       {:ok, new_state} ->
