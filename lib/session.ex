@@ -31,7 +31,7 @@ defmodule Janus.Session do
   Returns the same values as `GenServer.start_link/3`.
 
   If session fails to start the reason might be:
-  * `{:gateway, code, info}` - it means that the call itself succeded but the
+  * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """
@@ -68,7 +68,7 @@ defmodule Janus.Session do
 
   The reason might be:
 
-  * `{:gateway, code, info}` - it means that the call itself succeded but the
+  * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info,
   * other - some serious error happened.
   """

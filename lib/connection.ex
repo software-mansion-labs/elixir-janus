@@ -1,7 +1,14 @@
 defmodule Janus.Connection do
+  @moduledoc """
+  Creates and keeps active connection with Janus Gateway, sends and
+  handles messages specific to the gateway and its plugins.
+
+  Module can take advantage of different transports and handler modules.
+  All the interaction is done via `Janus.Connection.call/3` function.
+  """
+
   use GenServer
   use Bunch
-  # use Bitwise
   require Record
   require Logger
 
@@ -12,7 +19,7 @@ defmodule Janus.Connection do
 
   @type t :: GenServer.server()
 
-  Record.defrecordp(:state,
+  Record.defrecord(:state,
     transport_module: nil,
     transport_state: nil,
     handler_module: nil,
@@ -23,7 +30,7 @@ defmodule Janus.Connection do
   @doc """
   Starts the new connection to the gateway and links it to the current
   process. The connection is transport-agnostic. The gateway supports
-  multiple means of accesing its API and this module can use any of them.
+  multiple means of accessing its API and this module can use any of them.
 
   ## Arguments
 
@@ -94,7 +101,7 @@ defmodule Janus.Connection do
 
   The reason might be:
 
-  * `{:gateway, code, info}` - it means that the call itself succeded but the
+  * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info.
   """
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
@@ -121,7 +128,10 @@ defmodule Janus.Connection do
   # Callbacks
 
   @impl true
-  def init({transport_module, transport_args, handler_module, handler_args}) do
+  def init(
+        {transport_module, transport_args, handler_module, handler_args},
+        cleanup \\ @cleanup_interval
+      ) do
     Logger.debug(
       "[#{__MODULE__} #{inspect(self())}] Init: transport_module = #{inspect(transport_module)}, handler_module = #{
         inspect(handler_module)
@@ -132,7 +142,7 @@ defmodule Janus.Connection do
           connect: {:ok, transport_state} <- transport_module.connect(transport_args) do
       pending_calls_table = Transaction.init_transaction_call_table()
 
-      Process.send_after(self(), :cleanup, @cleanup_interval)
+      Process.send_after(self(), :cleanup, cleanup)
 
       {:ok,
        state(
@@ -191,11 +201,14 @@ defmodule Janus.Connection do
   end
 
   @impl true
-  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
+  def handle_info(
+        :cleanup,
+        state(pending_calls_table: pending_calls_table) = s
+      ) do
     Transaction.cleanup_old_transactions(pending_calls_table)
 
     Process.send_after(self(), :cleanup, @cleanup_interval)
-    {:noreply, state}
+    {:noreply, s}
   end
 
   def handle_info(
@@ -227,7 +240,6 @@ defmodule Janus.Connection do
   end
 
   # Helpers
-
   # Handles payload which is a success response to the call
   defp handle_payload(
          %{"janus" => "success", "transaction" => transaction} = response,
@@ -239,7 +251,7 @@ defmodule Janus.Connection do
   end
 
   defp handle_payload(
-         %{"janus" => "ack", "transaction" => transaction} = payload,
+         %{"janus" => "ack", "transaction" => transaction},
          state(pending_calls_table: pending_calls_table) = state
        ) do
     Transaction.handle_transaction({:ok, %{"janus" => "ack"}}, transaction, pending_calls_table)
@@ -428,19 +440,16 @@ defmodule Janus.Connection do
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
          state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
-    "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
-      inspect(event)
-    }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
-    |> Logger.debug()
+    Logger.warn(
+      "[#{__MODULE__} #{inspect(self())}] Received unknown event: emitter = #{inspect(emitter)}, event = #{
+        inspect(event)
+      }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
+    )
 
     {:ok, s}
-    # case handler_module.handle_detached(session_id, sender, handler_state) do
-    #   {:noreply, new_handler_state} ->
-    #     {:ok, state(s, handler_state: new_handler_state)}
-    # end
   end
 
-  # Payloads related to the events might come batched in lists, handle them recusively
+  # Payloads related to the events might come batched in lists, handle them recursively
   defp handle_payload([head | tail], s) do
     case handle_payload(head, s) do
       {:ok, new_state} ->
