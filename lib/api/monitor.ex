@@ -30,7 +30,7 @@ defmodule Janus.API.Monitor do
           {:error, atom} | {:ok, list(non_neg_integer())}
   def list_sessions(connection, admin_secret \\ nil) do
     message =
-      %{janus: "list_sessions"}
+      %{janus: :list_sessions}
       |> add_optional_param(:admin_secret, admin_secret)
 
     with {:ok,
@@ -52,7 +52,7 @@ defmodule Janus.API.Monitor do
   def list_handles(connection, session_id, admin_secret \\ nil) do
     message =
       %{
-        janus: "list_handles",
+        janus: :list_handles,
         session_id: session_id
       }
       |> add_optional_param(:admin_secret, admin_secret)
@@ -81,7 +81,7 @@ defmodule Janus.API.Monitor do
   def handle_info(connection, session_id, handle_id, admin_secret \\ nil) do
     message =
       %{
-        janus: "handle_info",
+        janus: :handle_info,
         session_id: session_id,
         handle_id: handle_id
       }

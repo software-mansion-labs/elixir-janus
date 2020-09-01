@@ -106,6 +106,14 @@ defmodule Janus.Session do
     GenServer.call(session, {:execute_message, message, timeout})
   end
 
+  @doc """
+  Returns stored session_id.
+  """
+  @spec get_session_id(Janus.Session.t()) :: session_id_t()
+  def get_session_id(session) do
+    GenServer.call(session, :get_session_id)
+  end
+
   # callbacks
 
   @impl true
@@ -138,7 +146,7 @@ defmodule Janus.Session do
         _from,
         %{connection: connection, session_id: session_id} = state
       ) do
-    message = Map.put(message, "session_id", session_id)
+    message = Map.put(message, :session_id, session_id)
     response = Connection.call(connection, message, timeout)
 
     {:reply, response, state}
