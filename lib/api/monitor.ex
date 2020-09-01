@@ -1,4 +1,10 @@
 defmodule Janus.API.Monitor do
+  @moduledoc """
+  Provides functionality to request information from Monitor's API.
+
+  ## Important
+  All functions require valid connection to Monitor API instead of regular Janus API.
+  """
   alias Janus.Session
   alias Janus.Connection
   alias Janus.API
@@ -24,10 +30,14 @@ defmodule Janus.API.Monitor do
         }
 
   @doc """
-  Requests gateway to list all existing sessions.
+  Requests list of all existing sessions.
+
+  ## Arguments
+  * `connection` - valid connection with Monitor API.
+  * `admin_secret` - secret added to API request if authorization is required.
   """
   @spec list_sessions(GenServer.server(), binary | nil) ::
-          {:error, atom} | {:ok, list(non_neg_integer())}
+          {:error, atom} | {:ok, list(Session.session_id_t())}
   def list_sessions(connection, admin_secret \\ nil) do
     message =
       %{janus: :list_sessions}
@@ -45,7 +55,12 @@ defmodule Janus.API.Monitor do
   end
 
   @doc """
-  Requests gateway to list all handles currently active within given session.
+  Requests list of all handles currently active within given session.
+
+  ## Arguments
+  * `connection` - valid connection with Monitor API.
+  * `session_id` - targeted session's id.
+  * `admin_secret` - secret added to API request if authorization is required.
   """
   @spec list_handles(GenServer.server(), Session.session_id_t(), binary | nil) ::
           {:error, atom} | {:ok, list(non_neg_integer())}
@@ -69,7 +84,13 @@ defmodule Janus.API.Monitor do
   end
 
   @doc """
-  Requests gateway to get information about given handle.
+  Requests information about specific handle.
+
+  ## Arguments
+  * `connection` - valid connection with Monitor API.
+  * `session_id` - session id of targeted handler.
+  * `handle_id` - targeted handler's id.
+  * `admin_secret` - secret added to API request if authorization is required.
   """
   @spec handle_info(
           GenServer.server(),
