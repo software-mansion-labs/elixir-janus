@@ -24,7 +24,8 @@ defmodule Janus.Connection do
     transport_state: nil,
     handler_module: nil,
     handler_state: nil,
-    pending_calls_table: nil
+    pending_calls_table: nil,
+    cleanup_interval: nil
   )
 
   @doc """
@@ -150,7 +151,8 @@ defmodule Janus.Connection do
          transport_state: transport_state,
          handler_module: handler_module,
          handler_state: handler_state,
-         pending_calls_table: pending_calls_table
+         pending_calls_table: pending_calls_table,
+         cleanup_interval: cleanup
        )}
     else
       handler: {:error, reason} ->
@@ -203,11 +205,11 @@ defmodule Janus.Connection do
   @impl true
   def handle_info(
         :cleanup,
-        state(pending_calls_table: pending_calls_table) = s
+        state(pending_calls_table: pending_calls_table, cleanup_interval: cleanup_interval) = s
       ) do
     Transaction.cleanup_old_transactions(pending_calls_table)
 
-    Process.send_after(self(), :cleanup, @cleanup_interval)
+    Process.send_after(self(), :cleanup, cleanup_interval)
     {:noreply, s}
   end
 

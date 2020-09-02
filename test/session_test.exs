@@ -1,14 +1,21 @@
 defmodule Janus.SessionTest do
   use ExUnit.Case
-  alias Janus.{Session, Connection}
-  alias Janus.HandlerTest.FakeHandler
 
+  import Mox
+  alias Janus.{Session, Connection}
+  alias Janus.Handler.Stub.FakeHandler
+  alias Janus.Transport.Stub.FakeTransport
   @default_connection_id 0
-  @timeout 100
+  @timeout 1_000
 
   setup do
+    DateTimeMock
+    |> stub(:utc_now, fn -> DateTime.utc_now() end)
+
     transport_args = {@default_connection_id}
     {:ok, connection} = Connection.start(FakeTransport, transport_args, FakeHandler, [], [])
+
+    set_mox_global()
 
     %{connection: connection}
   end
@@ -31,7 +38,7 @@ defmodule Janus.SessionTest do
          %{
            connection: conn
          } do
-      {:ok, _session} = Session.start_link(conn, @timeout)
+      {:ok, session} = Session.start_link(conn, @timeout)
 
       interval = FakeTransport.keepalive_interval()
       :erlang.trace(conn, true, [:receive])
@@ -42,6 +49,7 @@ defmodule Janus.SessionTest do
     @tag :capture_log
     test "stop on connection exit", %{connection: conn} do
       {:ok, session} = Session.start(conn, @timeout)
+
       Process.monitor(session)
       Process.exit(conn, :kill)
 

@@ -1,4 +1,4 @@
-defmodule Janus.ConnectionTest.Stub do
+defmodule Janus.Transport.Stub do
   defmodule ValidTransport do
     def connect(_args) do
       {:ok, "transport"}
@@ -6,6 +6,10 @@ defmodule Janus.ConnectionTest.Stub do
 
     def send(_payload, _timeout, state) do
       {:ok, state}
+    end
+
+    def handle_info(message, transport_state) do
+      {:ok, message, transport_state}
     end
   end
 
@@ -18,7 +22,9 @@ defmodule Janus.ConnectionTest.Stub do
       {:error, "handler"}
     end
   end
+end
 
+defmodule Janus.Handler.Stub do
   defmodule ValidHandler do
     def init(_args) do
       {:ok, "handler"}

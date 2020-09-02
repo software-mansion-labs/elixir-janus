@@ -1,5 +1,6 @@
 defmodule Janus.Connection.Transaction do
   @moduledoc false
+  alias Janus.DateTimeUtils
 
   @transaction_length 32
   @insert_tries 5
@@ -19,7 +20,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
-        timestamp \\ DateTime.utc_now(),
+        timestamp \\ DateTimeUtils.utc_now(),
         tries \\ @insert_tries,
         transaction_generator \\ &:crypto.strong_rand_bytes/1
       )
@@ -76,7 +77,7 @@ defmodule Janus.Connection.Transaction do
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
           {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}
-  def transaction_status(pending_calls_table, transaction, timestamp \\ DateTime.utc_now()) do
+  def transaction_status(pending_calls_table, transaction, timestamp \\ DateTimeUtils.utc_now()) do
     case :ets.lookup(pending_calls_table, transaction) do
       [{_transaction, from, expires_at}] ->
         if timestamp |> DateTime.to_unix(:millisecond) > expires_at do
@@ -91,7 +92,7 @@ defmodule Janus.Connection.Transaction do
   end
 
   @spec cleanup_old_transactions(:ets.tab(), DateTime.t()) :: boolean
-  def cleanup_old_transactions(pending_calls_table, timestamp \\ DateTime.utc_now()) do
+  def cleanup_old_transactions(pending_calls_table, timestamp \\ DateTimeUtils.utc_now()) do
     require Ex2ms
     timestamp = timestamp |> DateTime.to_unix(:millisecond)
 
@@ -114,8 +115,13 @@ defmodule Janus.Connection.Transaction do
   end
 
   @spec handle_transaction({:ok, any} | {:error, any}, binary, :ets.tab()) :: :ok
-  def handle_transaction(response, transaction, pending_calls_table) do
-    transaction_status = transaction_status(pending_calls_table, transaction)
+  def handle_transaction(
+        response,
+        transaction,
+        pending_calls_table,
+        timestamp \\ DateTimeUtils.utc_now()
+      ) do
+    transaction_status = transaction_status(pending_calls_table, transaction, timestamp)
 
     case transaction_status do
       {:ok, from} ->

@@ -1,15 +1,38 @@
 defmodule Janus.ConnectionTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias Janus.Connection
-  alias Janus.ConnectionTest.Stub.{ValidHandler, BrokenHandler, ValidTransport, BrokenTransport}
   alias Janus.Connection.Transaction
-  import Janus.Connection
-  import Janus.HandlerTest.CallbackHelper
-  import Mock
 
+  alias Janus.Handler.Stub.{ValidHandler, BrokenHandler}
+  alias Janus.Transport.Stub.{ValidTransport, BrokenTransport}
+
+  import Janus.Connection
+  import Janus.Test.Macro
+  import Mock
+  import Mox
   import ExUnit.CaptureLog
 
+  @tag :tag
   @receive_timeout 20_000
+  @receive_refute 2_000
+  @now %DateTime{
+    year: 2000,
+    month: 2,
+    day: 29,
+    zone_abbr: "CET",
+    hour: 23,
+    minute: 0,
+    second: 7,
+    utc_offset: 3600,
+    std_offset: 0,
+    time_zone: "Etc/UTC"
+  }
+
+  setup do
+    table = Transaction.init_transaction_call_table(__MODULE__)
+    Mox.stub(DateTimeMock, :utc_now, fn -> @now end)
+    [table: table]
+  end
 
   describe "Connection should call handler's" do
     # check if all callbacks are called for their respective events
@@ -19,6 +42,87 @@ defmodule Janus.ConnectionTest do
     test_callback(:audio_receiving)
     test_callback(:video_receiving)
     test_callback(:timeout)
+  end
+
+  describe "cleanup should" do
+    test "keep valid transaction", %{table: table} do
+      timeout = 20_000_000
+
+      transaction = Transaction.insert_transaction(table, self(), timeout, @now)
+      Connection.handle_info(:cleanup, state(pending_calls_table: table, cleanup_interval: 500))
+      assert {:ok, _} = Transaction.transaction_status(table, transaction, @now)
+      assert_receive :cleanup, @receive_timeout
+    end
+
+    test "flush expired transaction", %{table: table} do
+      past = @now |> DateTime.add(-20_000, :second)
+      transaction = Transaction.insert_transaction(table, self(), 0, past)
+
+      Connection.handle_info(:cleanup, state(pending_calls_table: table, cleanup_interval: 500))
+      assert {:error, :unknown_transaction} = Transaction.transaction_status(table, transaction)
+      assert_receive :cleanup, @receive_timeout
+    end
+  end
+
+  describe "handle info should" do
+    test "respond to valid transaction", %{table: table} do
+      timeout = 20_000_000
+      transaction = Transaction.insert_transaction(table, from(), timeout, @now)
+      response = %{"janus" => "ack"}
+      message = Map.merge(response, %{"transaction" => transaction})
+
+      Connection.handle_info(
+        message,
+        state(
+          pending_calls_table: table,
+          transport_module: ValidTransport
+        )
+      )
+
+      assert_receive response, @receive_timeout
+
+      assert {:error, :unknown_transaction} = Transaction.transaction_status(table, transaction)
+    end
+
+    test "not respond to expired transaction", %{table: table} do
+      past = @now |> DateTime.add(-20_000, :second)
+      transaction = Transaction.insert_transaction(table, from(), 0, past)
+      response = %{"janus" => "ack"}
+      message = Map.merge(response, %{"transaction" => transaction})
+
+      Connection.handle_info(
+        message,
+        state(
+          pending_calls_table: table,
+          transport_module: ValidTransport
+        )
+      )
+
+      refute_receive response, @receive_refute
+      assert {:error, :unknown_transaction} = Transaction.transaction_status(table, transaction)
+    end
+
+    test "batched response", %{table: table} do
+      batch_size = 5
+      timeout = 20_000_000
+      janus_response = %{"janus" => "success"}
+
+      transactions =
+        for _ <- 1..batch_size, do: Transaction.insert_transaction(table, from(), timeout)
+
+      messages =
+        for t <- transactions, do: Map.merge(janus_response, %{"data" => t, "transaction" => t})
+
+      Connection.handle_info(
+        messages,
+        state(
+          pending_calls_table: table,
+          transport_module: ValidTransport
+        )
+      )
+
+      for t <- transactions, do: assert_next_receive(t, @receive_timeout)
+    end
   end
 
   describe "init should" do
@@ -50,10 +154,15 @@ defmodule Janus.ConnectionTest do
   end
 
   describe "call should" do
-    test "send transaction through transport and add transaction to transaction store" do
-      with_mock(ValidTransport, send: fn _payload, _timeout, _state -> {:ok, "dummy"} end) do
+    defmodule ValidTransportMock do
+      def send(_a, _b, _c), do: {}
+    end
+
+    test "send transaction through transport and add transaction to transaction store", %{
+      table: table
+    } do
+      with_mock(ValidTransportMock, send: fn _payload, _timeout, _state -> {:ok, "dummy"} end) do
         timeout = 5000
-        table = Transaction.init_transaction_call_table()
         payload = %{payload: 'data'}
 
         logs =
@@ -62,7 +171,7 @@ defmodule Janus.ConnectionTest do
               {:call, payload, timeout},
               self(),
               state(
-                transport_module: ValidTransport,
+                transport_module: ValidTransportMock,
                 transport_state: [],
                 pending_calls_table: table
               )
@@ -73,7 +182,7 @@ defmodule Janus.ConnectionTest do
 
         assert [{^transaction, _, _}] = :ets.lookup(table, transaction)
         assert logs =~ inspect(payload)
-        assert_called(ValidTransport.send(:_, :_, :_))
+        assert_called(ValidTransportMock.send(:_, :_, :_))
       end
     end
 
@@ -86,7 +195,12 @@ defmodule Janus.ConnectionTest do
           []
         )
 
+      DateTimeMock
+      |> allow(self(), pid)
+
       catch_exit(Connection.call(pid, %{}, 500))
     end
   end
+
+  defp from(), do: {self(), @tag}
 end

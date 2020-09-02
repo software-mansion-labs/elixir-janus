@@ -1,4 +1,4 @@
-defmodule FakeTransport do
+defmodule Janus.Transport.Stub.FakeTransport do
   @behaviour Janus.Transport
   @keepalive_interval 50
 
