@@ -38,7 +38,8 @@ defmodule Elixir.Janus.MixProject do
       {:bunch, "~> 1.3"},
       {:ex2ms, "~> 1.0"},
       {:jason, "~> 1.2", only: :test},
-      {:ex_doc, "~> 0.22", only: [:test, :dev], runtime: false}
+      {:ex_doc, "~> 0.22", only: [:test, :dev], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false}
     ]
   end
 

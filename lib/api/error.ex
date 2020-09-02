@@ -1,4 +1,4 @@
-defmodule Janus.API do
+defmodule Janus.API.Errors do
   @moduledoc false
 
   @errors %{
@@ -30,15 +30,14 @@ defmodule Janus.API do
   }
   # This function handles error that is sent by Janus
   # Source: https://github.com/meetecho/janus-gateway/blob/master/apierror.h#L20
-  def handle_api_error(%{"janus" => "error", "error" => %{"code" => code, "reason" => reason}}) do
+  @spec handle(any()) :: {:error, {atom(), integer(), String.t()}}
+  def handle(%{"janus" => "error", "error" => %{"code" => code, "reason" => reason}}) do
     error = @errors[code]
-    {:error, {error, reason}}
+    {:error, {error, code, reason}}
   end
 
-  def handle_api_error({:error, {:gateway, code, reason}}) do
+  def handle({:error, {:gateway, code, reason}}) do
     error = @errors[code]
-    {:error, {error, reason}}
+    {:error, {error, code, reason}}
   end
-
-  def handle_api_error(data), do: data
 end

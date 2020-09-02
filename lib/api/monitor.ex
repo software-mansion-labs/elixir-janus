@@ -7,7 +7,7 @@ defmodule Janus.API.Monitor do
   """
   alias Janus.Session
   alias Janus.Connection
-  alias Janus.API
+  alias Janus.API.Errors
 
   @type handle_info :: %{
           session_id: non_neg_integer,
@@ -28,6 +28,26 @@ defmodule Janus.API.Monitor do
           queued_packets: 0,
           streams: list
         }
+
+  @info_accepted_keys [
+    "session_id",
+    "session_last_activity",
+    "session_transport",
+    "handle_id",
+    "opaque_id",
+    "loop-running",
+    "created",
+    "current_time",
+    "plugin",
+    "plugin_specific",
+    "flags",
+    "agent-created",
+    "ice-mode",
+    "ice-role",
+    "sdps",
+    "queued-packets",
+    "streams"
+  ]
 
   @doc """
   Requests list of all existing sessions.
@@ -50,8 +70,10 @@ defmodule Janus.API.Monitor do
           }} <-
            Connection.call(connection, message) do
       {:ok, list}
+    else
+      {:error, _reason} = error ->
+        Errors.handle(error)
     end
-    |> API.handle_api_error()
   end
 
   @doc """
@@ -79,8 +101,10 @@ defmodule Janus.API.Monitor do
           }} <-
            Connection.call(connection, message) do
       {:ok, list}
+    else
+      {:error, _reason} = error ->
+        Errors.handle(error)
     end
-    |> API.handle_api_error()
   end
 
   @doc """
@@ -114,29 +138,11 @@ defmodule Janus.API.Monitor do
             "info" => info
           }} <-
            Connection.call(connection, message) do
-      accepted_keys = [
-        "session_id",
-        "session_last_activity",
-        "session_transport",
-        "handle_id",
-        "opaque_id",
-        "loop-running",
-        "created",
-        "current_time",
-        "plugin",
-        "plugin_specific",
-        "flags",
-        "agent-created",
-        "ice-mode",
-        "ice-role",
-        "sdps",
-        "queued-packets",
-        "streams"
-      ]
-
-      {:ok, take_string_keys_turn_to_atom(info, accepted_keys)}
+      {:ok, take_accepted_keys_as_atoms(info)}
+    else
+      {:error, _reason} = error ->
+        Errors.handle(error)
     end
-    |> API.handle_api_error()
   end
 
   # This would be beneficial in future PRs
@@ -144,8 +150,8 @@ defmodule Janus.API.Monitor do
   defp add_optional_param(map, _key, nil), do: map
   defp add_optional_param(map, key, value), do: Map.put(map, key, value)
 
-  defp take_string_keys_turn_to_atom(map, accepted_keys) do
-    for {key, value} <- Map.take(map, accepted_keys), into: %{} do
+  defp take_accepted_keys_as_atoms(map) do
+    for {key, value} <- Map.take(map, @info_accepted_keys), into: %{} do
       key = key |> String.replace("-", "_") |> String.to_atom()
       {key, value}
     end
