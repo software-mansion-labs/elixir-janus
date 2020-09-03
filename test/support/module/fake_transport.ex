@@ -1,4 +1,7 @@
 defmodule Janus.Transport.Stub.FakeTransport do
+  # fake transport for mocking communication with janus gateway
+  # mocks `send` callback to return proper gateway's responses
+
   @behaviour Janus.Transport
   @keepalive_interval 50
 
@@ -7,14 +10,10 @@ defmodule Janus.Transport.Stub.FakeTransport do
   def default_session_id(), do: @session_id
 
   @impl true
-  def connect({id}) do
-    {:ok, %{message_receiver: self(), id: id}}
-  end
-
-  def send(message, _timeout, %{message_receiver: receiver} = state) do
-    payload = Jason.encode!(message) |> Jason.decode!()
-    :ok = handle_payload(payload, receiver)
-    {:ok, state}
+  def connect(opts) do
+    # used to mock errors returned by Monitor/Admin API
+    fail_admin_api = opts[:fail_admin_api] || false
+    {:ok, %{message_receiver: self(), fail_admin_api: fail_admin_api}}
   end
 
   @impl true
@@ -41,8 +40,71 @@ defmodule Janus.Transport.Stub.FakeTransport do
     {:ok, state}
   end
 
-  def send(payload, _timeout, %{message_receiver: receiver, id: id} = state) do
-    send(receiver, {:message, payload, id})
+  def send(
+        %{janus: :test, transaction: transaction, session_id: session_id},
+        _timeout,
+        %{message_receiver: receiver} = state
+      ) do
+    send(receiver, %{
+      "janus" => "success",
+      "session_id" => session_id,
+      "transaction" => transaction,
+      "data" => %{"session_id" => @session_id}
+    })
+
+    {:ok, state}
+  end
+
+  # handling admin api tests
+  def send(
+        %{janus: :list_sessions, transaction: _transaction} = payload,
+        _timeout,
+        %{message_receiver: receiver, fail_admin_api: fail} = state
+      ) do
+    success_msg = %{
+      "janus" => "success",
+      "sessions" => [1, 2, 3]
+    }
+
+    handle_admin_api_payload(receiver, payload, success_msg, fail)
+
+    {:ok, state}
+  end
+
+  def send(
+        %{janus: :list_handles, session_id: _session_id, transaction: _transaction} = payload,
+        _timeout,
+        %{message_receiver: receiver, fail_admin_api: fail} = state
+      ) do
+    success_msg = %{
+      "janus" => "success",
+      "handles" => [1, 2, 3]
+    }
+
+    handle_admin_api_payload(receiver, payload, success_msg, fail)
+
+    {:ok, state}
+  end
+
+  def send(
+        %{
+          janus: :handle_info,
+          session_id: session_id,
+          handle_id: handle_id,
+          transaction: _transaction
+        } = payload,
+        _timeout,
+        %{message_receiver: receiver, fail_admin_api: fail} = state
+      ) do
+    success_msg = %{
+      "janus" => "success",
+      "session_id" => session_id,
+      "handle_id" => handle_id,
+      "info" => %{}
+    }
+
+    handle_admin_api_payload(receiver, payload, success_msg, fail)
+
     {:ok, state}
   end
 
@@ -56,26 +118,29 @@ defmodule Janus.Transport.Stub.FakeTransport do
     @keepalive_interval
   end
 
-  defp handle_payload(%{"janus" => "create", "transaction" => transaction}, receiver) do
-    send(receiver, %{
-      "janus" => "success",
-      "transaction" => transaction,
-      "data" => %{"id" => @session_id}
-    })
+  defp handle_admin_api_payload(receiver, payload, success_msg, fail) do
+    transaction = payload[:transaction]
 
-    :ok
-  end
+    msg =
+      cond do
+        payload[:admin_secret] == nil ->
+          %{
+            "janus" => "error",
+            "transaction" => transaction,
+            "error" => %{"code" => 403, "reason" => "unauthorized"}
+          }
 
-  defp handle_payload(
-         %{"janus" => "keepalive", "session_id" => _session_id, "transaction" => transaction},
-         receiver
-       ) do
-    send(receiver, %{"janus" => "ack", "transaction" => transaction})
-    :ok
-  end
+        fail == true ->
+          %{
+            "janus" => "error",
+            "transaction" => transaction,
+            "error" => %{"code" => 490, "reason" => "test error"}
+          }
 
-  defp handle_payload(%{"transaction" => transaction} = msg, receiver) do
-    send(receiver, %{"janus" => "success", "data" => msg, "transaction" => transaction})
-    :ok
+        true ->
+          success_msg |> Map.put("transaction", transaction)
+      end
+
+    send(receiver, msg)
   end
 end

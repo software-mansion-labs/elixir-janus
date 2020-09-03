@@ -12,8 +12,7 @@ defmodule Janus.SessionTest do
     DateTimeMock
     |> stub(:utc_now, fn -> DateTime.utc_now() end)
 
-    transport_args = {@default_connection_id}
-    {:ok, connection} = Connection.start(FakeTransport, transport_args, FakeHandler, [], [])
+    {:ok, connection} = Connection.start(FakeTransport, [], FakeHandler, {})
 
     set_mox_global()
 
@@ -38,7 +37,7 @@ defmodule Janus.SessionTest do
          %{
            connection: conn
          } do
-      {:ok, session} = Session.start_link(conn, @timeout)
+      {:ok, _session} = Session.start_link(conn, @timeout)
 
       interval = FakeTransport.keepalive_interval()
       :erlang.trace(conn, true, [:receive])

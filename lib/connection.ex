@@ -113,7 +113,7 @@ defmodule Janus.Connection do
   @doc """
   Returns transport module.
   """
-  @spec get_transport_module(Genserver.server()) :: any
+  @spec get_transport_module(GenServer.server()) :: any
   def get_transport_module(server) do
     GenServer.call(server, {:get_module, :transport})
   end
@@ -121,7 +121,7 @@ defmodule Janus.Connection do
   @doc """
   Returns handler module.
   """
-  @spec get_handler_module(Genserver.server()) :: any
+  @spec get_handler_module(GenServer.server()) :: any
   def get_handler_module(server) do
     GenServer.call(server, {:get_module, :handler})
   end
@@ -243,6 +243,45 @@ defmodule Janus.Connection do
 
   # Helpers
   # Handles payload which is a success response to the call
+
+  # Monitor/Admin API payloads
+
+  ## Handle list_sessions payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "sessions" => _sessions} = msg,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    result = {:ok, msg}
+    Transaction.handle_transaction(result, transaction, pending_calls_table)
+    {:ok, state}
+  end
+
+  ## Handle list_handles payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "handles" => _handles} = msg,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    result = {:ok, msg}
+    Transaction.handle_transaction(result, transaction, pending_calls_table)
+    {:ok, state}
+  end
+
+  ## Handle handle_info payload
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "session_id" => _session_id,
+           "handle_id" => _handle_id,
+           "info" => _info
+         } = msg,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    result = {:ok, msg}
+    Transaction.handle_transaction(result, transaction, pending_calls_table)
+    {:ok, state}
+  end
+
   defp handle_payload(
          %{"janus" => "success", "transaction" => transaction} = response,
          state(pending_calls_table: pending_calls_table) = state
