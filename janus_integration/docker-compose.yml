@@ -4,7 +4,6 @@ services:
     container_name: elixir-janus-integration-gateway
     build:
       context: "./docker-janus/0.10.3"
-    image: swmasnion/janus
     environment:
      - GATEWAY_VIDEOROOM_ADMIN_KEY=secret
      - GATEWAY_IP=127.0.0.1
@@ -16,5 +15,3 @@ services:
     ports:
       - 8188:8188
       - 7188:7188
-    volumes:
-      - "./janus-config:/templates"

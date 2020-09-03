@@ -6,7 +6,7 @@ defmodule Janus.Integration.Test do
   alias Janus.Transport.WS
   alias Janus.Transport.WS.Adapters.WebSockex
 
-  @secret "false"
+  @secret "janusoverlord"
 
   describe "Connection should" do
     setup do
@@ -80,9 +80,7 @@ defmodule Janus.Integration.Test do
       session_id = Session.get_session_id(session)
       assert {:ok, handle_id} = Session.session_attach(session, "janus.plugin.videoroom")
 
-      assert {:ok, info} =
-               Monitor.handle_info(admin_connection, session_id, handle_id, @secret)
-               |> IO.inspect()
+      assert {:ok, info} = Monitor.handle_info(admin_connection, session_id, handle_id, @secret)
 
       assert %{handle_id: ^handle_id, session_id: ^session_id} = info
     end

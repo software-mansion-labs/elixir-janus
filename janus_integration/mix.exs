@@ -25,8 +25,6 @@ defmodule JanusIntegrationTests.MixProject do
     [
       {:elixir_janus, path: "../", override: true},
       {:elixir_janus_transport_ws, github: "software-mansion-labs/elixir-janus-transport-ws"},
-      {:elixir_janus_plugin_videoroom,
-       github: "software-mansion-labs/elixir-janus-plugin-videoroom"},
       {:websockex, "~> 0.4.2"}
     ]
   end
