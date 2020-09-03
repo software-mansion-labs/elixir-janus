@@ -110,7 +110,7 @@ defmodule Janus.Connection do
   @doc """
   Returns transport module.
   """
-  @spec get_transport_module(Genserver.server()) :: any
+  @spec get_transport_module(GenServer.server()) :: any
   def get_transport_module(server) do
     GenServer.call(server, {:get_module, :transport})
   end
@@ -118,7 +118,7 @@ defmodule Janus.Connection do
   @doc """
   Returns handler module.
   """
-  @spec get_handler_module(Genserver.server()) :: any
+  @spec get_handler_module(GenServer.server()) :: any
   def get_handler_module(server) do
     GenServer.call(server, {:get_module, :handler})
   end
@@ -519,6 +519,38 @@ defmodule Janus.Connection do
     )
 
     {:ok, s}
+  end
+
+  # Monitor/Admin API payloads
+
+  ## Handle list_sessions payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "sessions" => _sessions} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle list_handles payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "handles" => _handles} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle handle_info payload
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "session_id" => _session_id,
+           "handle_id" => _handle_id,
+           "info" => _info
+         } = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
   end
 
   # Payloads related to the events might come batched in lists, handle them recursively

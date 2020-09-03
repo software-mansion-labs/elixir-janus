@@ -3,12 +3,10 @@ defmodule Janus.SessionTest do
   alias Janus.{Session, Connection}
   alias Janus.HandlerTest.FakeHandler
 
-  @default_connection_id 0
   @timeout 100
 
   setup do
-    transport_args = {@default_connection_id}
-    {:ok, connection} = Connection.start(FakeTransport, transport_args, FakeHandler, [], [])
+    {:ok, connection} = Connection.start(FakeTransport, [], FakeHandler, {})
 
     %{connection: connection}
   end
