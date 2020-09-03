@@ -565,12 +565,14 @@ defmodule Janus.Connection do
     {:ok, s}
   end
 
-
   # Handle all successes
-  defp handle_payload(%{
-    "janus" => "success",
-    "transaction" => transaction,
-  } = payload, state) do
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction
+         } = payload,
+         state
+       ) do
     handle_successful_payload(transaction, payload, state)
   end
 
