@@ -565,6 +565,15 @@ defmodule Janus.Connection do
     {:ok, s}
   end
 
+
+  # Handle all successes
+  defp handle_payload(%{
+    "janus" => "success",
+    "transaction" => transaction,
+  } = payload, state) do
+    handle_successful_payload(transaction, payload, state)
+  end
+
   # Catch-all
   defp handle_payload(payload, s) do
     Logger.warn(
