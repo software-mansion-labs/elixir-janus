@@ -30,7 +30,7 @@ defmodule Janus.ConnectionTest do
 
   setup do
     table = Transaction.init_transaction_call_table(__MODULE__)
-    Mox.stub(DateTimeMock, :utc_now, fn -> @now end)
+    stub(DateTimeMock, :utc_now, fn -> @now end)
     [table: table]
   end
 
@@ -155,7 +155,7 @@ defmodule Janus.ConnectionTest do
 
   describe "call should" do
     defmodule ValidTransportMock do
-      def send(_a, _b, _c), do: {}
+      def send(_, _, _), do: {}
     end
 
     test "send transaction through transport and add transaction to transaction store", %{

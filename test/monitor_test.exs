@@ -14,11 +14,10 @@ defmodule Janus.API.MonitorTest do
   @handle_id 1
   @secret "secret"
 
-  setup do
-    DateTimeMock
-    |> stub(:utc_now, fn -> DateTime.utc_now() end)
+  setup :set_mox_global
 
-    set_mox_global()
+  setup do
+    stub(DateTimeMock, :utc_now, &DateTime.utc_now/0)
 
     {:ok, connection} =
       Connection.start_link(FakeTransport, [fail_admin_api: false], DummyHandler, {})

@@ -1,5 +1,5 @@
 defmodule Janus.SessionTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   import Mox
   alias Janus.{Session, Connection}
@@ -8,13 +8,12 @@ defmodule Janus.SessionTest do
   @default_connection_id 0
   @timeout 1_000
 
+  setup :set_mox_global
+
   setup do
-    DateTimeMock
-    |> stub(:utc_now, fn -> DateTime.utc_now() end)
+    stub(DateTimeMock, :utc_now, &DateTime.utc_now/0)
 
     {:ok, connection} = Connection.start(FakeTransport, [], FakeHandler, {})
-
-    set_mox_global()
 
     %{connection: connection}
   end
@@ -43,6 +42,8 @@ defmodule Janus.SessionTest do
       :erlang.trace(conn, true, [:receive])
 
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
+
+      Process.exit(conn, :kill)
     end
 
     @tag :capture_log
