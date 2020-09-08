@@ -235,6 +235,38 @@ defmodule Janus.Connection do
 
   # Helpers
 
+  # Monitor/Admin API payloads
+
+  ## Handle list_sessions payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "sessions" => _sessions} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle list_handles payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "handles" => _handles} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle handle_info payload
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "session_id" => _session_id,
+           "handle_id" => _handle_id,
+           "info" => _info
+         } = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
   # Handles payload which is a success response to the call
   defp handle_payload(
          %{"janus" => "success", "transaction" => transaction} = response,
@@ -441,38 +473,6 @@ defmodule Janus.Connection do
     |> Logger.warn()
 
     {:ok, s}
-  end
-
-  # Monitor/Admin API payloads
-
-  ## Handle list_sessions payload
-  defp handle_payload(
-         %{"janus" => "success", "transaction" => transaction, "sessions" => _sessions} = msg,
-         state
-       ) do
-    handle_successful_payload(transaction, msg, state)
-  end
-
-  ## Handle list_handles payload
-  defp handle_payload(
-         %{"janus" => "success", "transaction" => transaction, "handles" => _handles} = msg,
-         state
-       ) do
-    handle_successful_payload(transaction, msg, state)
-  end
-
-  ## Handle handle_info payload
-  defp handle_payload(
-         %{
-           "janus" => "success",
-           "transaction" => transaction,
-           "session_id" => _session_id,
-           "handle_id" => _handle_id,
-           "info" => _info
-         } = msg,
-         state
-       ) do
-    handle_successful_payload(transaction, msg, state)
   end
 
   # Payloads related to the events might come batched in lists, handle them recursively
