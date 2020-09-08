@@ -13,7 +13,14 @@ defmodule Janus.Connection.Transaction do
     :ets.new(pending_calls_table, [:duplicate_bag, :private])
   end
 
-  @spec insert_transaction(:ets.tab(), GenServer.from(), integer, DateTime.t()) :: binary
+  @spec insert_transaction(
+          :ets.tab(),
+          GenServer.from(),
+          integer,
+          DateTime.t(),
+          integer,
+          (non_neg_integer -> binary)
+        ) :: binary
 
   def insert_transaction(
         pending_calls_table,
