@@ -3,7 +3,6 @@ defmodule Janus.Connection.Transaction do
 
   @transaction_length 32
   @insert_tries 5
-  @generate_tries 5
 
   require Logger
   # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
@@ -40,8 +39,7 @@ defmodule Janus.Connection.Transaction do
         transaction_generator
       )
       when tries > 0 do
-    transaction =
-      generate_transaction!(pending_calls_table, transaction_generator, @generate_tries)
+    transaction = generate_transaction!(pending_calls_table, transaction_generator)
 
     expires_at =
       timestamp
@@ -66,8 +64,8 @@ defmodule Janus.Connection.Transaction do
     do: raise("Could not insert transaction")
 
   # Generates a transaction ID for the payload and ensures that it is unused
-  @spec generate_transaction!(:ets.tab(), (non_neg_integer -> binary), non_neg_integer) :: binary
-  defp generate_transaction!(pending_calls_table, transaction_generator, tries) when tries > 0 do
+  @spec generate_transaction!(:ets.tab(), (non_neg_integer -> binary)) :: binary
+  defp generate_transaction!(pending_calls_table, transaction_generator) do
     transaction = transaction_generator.(@transaction_length) |> Base.encode64()
 
     case :ets.lookup(pending_calls_table, transaction) do
@@ -75,11 +73,9 @@ defmodule Janus.Connection.Transaction do
         transaction
 
       _ ->
-        generate_transaction!(pending_calls_table, transaction_generator, tries - 1)
+        generate_transaction!(pending_calls_table, transaction_generator)
     end
   end
-
-  defp generate_transaction!(_, _, 0), do: raise("Could not generate transaction!")
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
           {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}

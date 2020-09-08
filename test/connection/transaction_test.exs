@@ -99,20 +99,6 @@ defmodule Janus.Connection.TransactionTest do
         Transaction.insert_transaction(table, from(), @timeout, @now, 0)
       end)
     end
-
-    test "retries to generate transaction id in case one is already in the transaction store", %{
-      table: table
-    } do
-      raw_transaction = :crypto.strong_rand_bytes(32)
-      transaction = raw_transaction |> Base.encode64()
-      :ets.insert(table, {transaction, from(), 0})
-
-      assert_raise RuntimeError, "Could not generate transaction!", fn ->
-        Transaction.insert_transaction(table, from(), @timeout, @now, 1, fn _ ->
-          raw_transaction
-        end)
-      end
-    end
   end
 
   describe "transaction_status returns" do

@@ -198,7 +198,7 @@ defmodule Janus.Connection do
   end
 
   @impl true
-  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = s) do
+  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = state) do
     Transaction.cleanup_old_transactions(pending_calls_table)
 
     Process.send_after(self(), :cleanup, @cleanup_interval)
@@ -246,7 +246,7 @@ defmodule Janus.Connection do
   end
 
   defp handle_payload(
-         %{"janus" => "ack", "transaction" => transaction} = payload,
+         %{"janus" => "ack", "transaction" => transaction},
          state(pending_calls_table: pending_calls_table) = state
        ) do
     Transaction.handle_transaction({:ok, %{"janus" => "ack"}}, transaction, pending_calls_table)
@@ -435,7 +435,6 @@ defmodule Janus.Connection do
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
          state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
-
     "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
       inspect(event)
     }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
@@ -505,5 +504,15 @@ defmodule Janus.Connection do
     |> Logger.warn()
 
     {:ok, s}
+  end
+
+  defp handle_successful_payload(
+         transaction,
+         data,
+         state(pending_calls_table: pending_calls_table) = state
+       ) do
+    Transaction.handle_transaction({:ok, data}, transaction, pending_calls_table)
+
+    {:ok, state}
   end
 end
