@@ -1,7 +1,14 @@
 defmodule Janus.Connection do
+  @moduledoc """
+  Creates and keeps active connection with Janus Gateway, sends and
+  handles messages specific to the gateway and its plugins.
+
+  Module can take advantage of different transports and handler modules.
+  All the interaction is done via `Janus.Connection.call/3` function.
+  """
+
   use GenServer
   use Bunch
-  # use Bitwise
   require Record
   require Logger
 
@@ -23,7 +30,7 @@ defmodule Janus.Connection do
   @doc """
   Starts the new connection to the gateway and links it to the current
   process. The connection is transport-agnostic. The gateway supports
-  multiple means of accesing its API and this module can use any of them.
+  multiple means of accessing its API and this module can use any of them.
 
   ## Arguments
 
@@ -94,7 +101,7 @@ defmodule Janus.Connection do
 
   The reason might be:
 
-  * `{:gateway, code, info}` - it means that the call itself succeded but the
+  * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info.
   """
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
@@ -105,7 +112,7 @@ defmodule Janus.Connection do
   @doc """
   Returns transport module.
   """
-  @spec get_transport_module(Genserver.server()) :: any
+  @spec get_transport_module(GenServer.server()) :: any
   def get_transport_module(server) do
     GenServer.call(server, {:get_module, :transport})
   end
@@ -113,7 +120,7 @@ defmodule Janus.Connection do
   @doc """
   Returns handler module.
   """
-  @spec get_handler_module(Genserver.server()) :: any
+  @spec get_handler_module(GenServer.server()) :: any
   def get_handler_module(server) do
     GenServer.call(server, {:get_module, :handler})
   end
@@ -428,19 +435,48 @@ defmodule Janus.Connection do
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
          state(handler_module: _handler_module, handler_state: _handler_state) = s
        ) do
+
     "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
       inspect(event)
     }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
-    |> Logger.debug()
+    |> Logger.warn()
 
     {:ok, s}
-    # case handler_module.handle_detached(session_id, sender, handler_state) do
-    #   {:noreply, new_handler_state} ->
-    #     {:ok, state(s, handler_state: new_handler_state)}
-    # end
   end
 
-  # Payloads related to the events might come batched in lists, handle them recusively
+  # Monitor/Admin API payloads
+
+  ## Handle list_sessions payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "sessions" => _sessions} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle list_handles payload
+  defp handle_payload(
+         %{"janus" => "success", "transaction" => transaction, "handles" => _handles} = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  ## Handle handle_info payload
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction,
+           "session_id" => _session_id,
+           "handle_id" => _handle_id,
+           "info" => _info
+         } = msg,
+         state
+       ) do
+    handle_successful_payload(transaction, msg, state)
+  end
+
+  # Payloads related to the events might come batched in lists, handle them recursively
   defp handle_payload([head | tail], s) do
     case handle_payload(head, s) do
       {:ok, new_state} ->
@@ -450,6 +486,17 @@ defmodule Janus.Connection do
 
   defp handle_payload([], s) do
     {:ok, s}
+  end
+
+  # Handle all successes
+  defp handle_payload(
+         %{
+           "janus" => "success",
+           "transaction" => transaction
+         } = payload,
+         state
+       ) do
+    handle_successful_payload(transaction, payload, state)
   end
 
   # Catch-all

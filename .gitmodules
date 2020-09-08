@@ -1,0 +1,3 @@
+[submodule "janus_integration/docker-janus"]
+	path = janus_integration/docker-janus
+	url = git@github.com:software-mansion-labs/docker-janus.git

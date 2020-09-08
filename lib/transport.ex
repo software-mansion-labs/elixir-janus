@@ -16,7 +16,7 @@ defmodule Janus.Transport do
 
   ## Arguments
   * `payload` - arbitrary map structure to be sent via transport
-  * `timeout` - time after which `send/3` call should return imidiately with an error
+  * `timeout` - time after which `send/3` call should return immediately with an error
   * `state` - state structure containing valid transport data necessary to send payload
 
   ## Returns
@@ -32,7 +32,7 @@ defmodule Janus.Transport do
 
   ## Arguments
   * `info` - arbitrary data to be handled by module
-  * `state` - state structure contianing transport data
+  * `state` - state structure containing transport data
 
   ## Returns
   on success:
