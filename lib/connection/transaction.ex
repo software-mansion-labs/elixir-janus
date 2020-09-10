@@ -39,16 +39,15 @@ defmodule Janus.Connection.Transaction do
         transaction_generator
       )
       when tries > 0 do
-    transaction = generate_transaction!(pending_calls_table, transaction_generator)
+    transaction = generate_transaction!(transaction_generator)
+    expires = expires_at(timestamp, timeout)
 
-    expires_at =
-      timestamp
-      |> DateTime.add(timeout, :millisecond)
-      |> DateTime.to_unix(:millisecond)
-
-    if :ets.insert_new(pending_calls_table, {transaction, from, expires_at}) do
+    if :ets.insert_new(pending_calls_table, {transaction, from, expires}) do
       transaction
     else
+      "[#{__MODULE__} #{inspect(self())}] Generated already existing transaction: #{transaction}"
+      |> Logger.warn()
+
       insert_transaction(
         pending_calls_table,
         from,
@@ -63,18 +62,16 @@ defmodule Janus.Connection.Transaction do
   def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0, _generator),
     do: raise("Could not insert transaction")
 
+  defp expires_at(timestamp, timeout) do
+    timestamp
+    |> DateTime.add(timeout, :millisecond)
+    |> DateTime.to_unix(:millisecond)
+  end
+
   # Generates a transaction ID for the payload and ensures that it is unused
-  @spec generate_transaction!(:ets.tab(), (non_neg_integer -> binary)) :: binary
-  defp generate_transaction!(pending_calls_table, transaction_generator) do
-    transaction = transaction_generator.(@transaction_length) |> Base.encode64()
-
-    case :ets.lookup(pending_calls_table, transaction) do
-      [] ->
-        transaction
-
-      _ ->
-        generate_transaction!(pending_calls_table, transaction_generator)
-    end
+  @spec generate_transaction!((non_neg_integer -> binary)) :: binary
+  defp generate_transaction!(transaction_generator) do
+    transaction_generator.(@transaction_length) |> Base.encode64()
   end
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
