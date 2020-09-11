@@ -1,6 +1,6 @@
 defmodule Janus.API.MonitorTest do
   use ExUnit.Case
-  alias Janus.{Connection, Session}
+  alias Janus.Connection
   alias Janus.API.Monitor
 
   defmodule DummyHandler do
