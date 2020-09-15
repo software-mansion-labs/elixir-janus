@@ -33,7 +33,7 @@ defmodule Janus.MockTransportTest do
 
   describe "MockTransport should" do
     test "save request-result pairs in state" do
-      assert {:ok, @request_response_pairs} = MockTransport.connect(@request_response_pairs)
+      assert {:ok, %{pairs: @request_response_pairs}} = MockTransport.connect(@request_response_pairs)
     end
 
     test "return unchanged message from handle_info callback" do
@@ -51,6 +51,8 @@ defmodule Janus.MockTransportTest do
     end
 
     test "send response to the caller" do
+      {:ok, state} = MockTransport.connect(@request_response_pairs)
+
       request = %{
         janus: :keepalive
       }
@@ -59,12 +61,14 @@ defmodule Janus.MockTransportTest do
         "janus" => "ack"
       }
 
-      MockTransport.send(request, 0, @request_response_pairs)
+      MockTransport.send(request, 0, state)
 
       assert_receive ^response
     end
 
     test "pass transaction field from request to the response" do
+      {:ok, state} = MockTransport.connect(@request_response_pairs)
+
       request = %{
         janus: :keepalive,
         transaction: 1
@@ -75,7 +79,7 @@ defmodule Janus.MockTransportTest do
         "transaction" => 1
       }
 
-      MockTransport.send(request, 0, @request_response_pairs)
+      MockTransport.send(request, 0, state)
 
       assert_receive ^response
     end
@@ -84,10 +88,30 @@ defmodule Janus.MockTransportTest do
       msg = %{janus: :keepalive}
 
       {:ok, state} = MockTransport.connect(@request_response_pairs)
-      assert length(state) == 3
+      assert length(state.pairs) == 3
 
       {:ok, state} = MockTransport.send(msg, 0, state)
-      assert length(state) == 2
+      assert length(state.pairs) == 2
+    end
+
+    test "raise an exception if request is send twice but its response is declared once" do
+      pairs = [
+        {
+          %{
+            janus: :create
+          },
+          %{
+            "janus" => "success"
+          }
+        }
+      ]
+
+      assert {:ok, state} = MockTransport.connect(pairs)
+      assert {:ok, state} = MockTransport.send(%{janus: :create}, 0, state)
+
+      assert_raise ArgumentError, fn ->
+        MockTransport.send(%{janus: :create}, 0, state)
+      end
     end
   end
 end

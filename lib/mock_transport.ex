@@ -3,11 +3,11 @@ defmodule Janus.MockTransport do
   Allows to mock transport module in a predictable way.
 
   One has to pass list of tuples representing request-response pairs to `c:connect/1` callback which will put them in returned state.
-  For each `c:send/3` invocation `#{inspect(__MODULE__)}` will try to match on first occurrence of given request and return
-  corresponding response. Matched tuple is then removed from the list of request-response pairs.
+  For each `c:send/3` invocation `#{inspect(__MODULE__)}` will try to match on the first occurrence of given request and return
+  corresponding response. The matched tuple is then removed returned state.
 
-  Module takes into consideration that each request will have `:transaction` field added by `Janus.Connection` module,
-  therefore it will extract `:transaction` field and put it to corresponding response.
+  The module takes into consideration that each request will have `:transaction` field added by `Janus.Connection` module,
+  therefore it will extract `:transaction` field and put it to the corresponding response.
 
   ## Example
 
@@ -55,40 +55,43 @@ defmodule Janus.MockTransport do
 
   @behaviour Janus.Transport
 
+  require Record
+
   @typedoc """
   Tuple element containing request and response maps.
 
   Response map should be compatible with formats handled by `Janus.Connection`, otherwise
   it will not be handled by mentioned module and will crash `Janus.Connection` process.
   """
-  @type request_result_pair :: {request :: map(), response :: map()}
+  @type request_response_pair :: {request :: map(), response :: map()}
 
   @impl true
-  def connect(results) do
-    {:ok, results}
+  def connect(pairs) do
+    {:ok, %{pairs: pairs}}
   end
 
   @impl true
-  def send(%{transaction: transaction} = payload, _timeout, results) do
+  def send(%{transaction: transaction} = payload, _timeout, %{pairs: pairs} = state) do
     payload_without_transaction = Map.delete(payload, :transaction)
-    {{_, response}, results} = List.keytake(results, payload_without_transaction, 0)
+
+    {response, pairs} = get_response(payload_without_transaction, pairs)
 
     send(self(), Map.put(response, "transaction", transaction))
 
-    {:ok, results}
-  end
-
-  def send(payload, _timeout, results) do
-    {{_, response}, results} = List.keytake(results, payload, 0)
-
-    send(self(), response)
-
-    {:ok, results}
+    {:ok, %{state | pairs: pairs}}
   end
 
   @impl true
-  def handle_info(message, responses) do
-    {:ok, message, responses}
+  def send(payload, _timeout, %{pairs: pairs} = state) do
+    {response, pairs} = get_response(payload, pairs)
+    send(self(), response)
+
+    {:ok, %{state | pairs: pairs}}
+  end
+
+  @impl true
+  def handle_info(message, state) do
+    {:ok, message, state}
   end
 
   @impl true
@@ -96,6 +99,19 @@ defmodule Janus.MockTransport do
     case Application.get_env(:elixir_janus, __MODULE__, nil) do
       nil -> nil
       [keepalive_interval: interval] -> interval
+    end
+  end
+
+  defp get_response(payload, pairs) do
+    case List.keytake(pairs, payload, 0) do
+      nil ->
+        raise ArgumentError,
+              "#{inspect(__MODULE__)}: payload's corresponding response has not been found, got: #{
+                inspect(payload)
+              }"
+
+      {{_, response}, pairs} ->
+        {response, pairs}
     end
   end
 end
