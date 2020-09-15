@@ -71,19 +71,17 @@ defmodule Janus.MockTransport do
   end
 
   @impl true
-  def send(%{transaction: transaction} = payload, _timeout, %{pairs: pairs} = state) do
-    payload_without_transaction = Map.delete(payload, :transaction)
-
-    {response, pairs} = get_response(payload_without_transaction, pairs)
-
-    send(self(), Map.put(response, "transaction", transaction))
-
-    {:ok, %{state | pairs: pairs}}
-  end
-
-  @impl true
   def send(payload, _timeout, %{pairs: pairs} = state) do
+    {transaction, payload} = Map.pop(payload, :transaction)
+
     {response, pairs} = get_response(payload, pairs)
+
+    response = if not is_nil(transaction) do
+      Map.put(response, "transaction", transaction)
+    else
+      response
+    end
+
     send(self(), response)
 
     {:ok, %{state | pairs: pairs}}
