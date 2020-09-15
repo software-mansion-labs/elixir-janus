@@ -61,6 +61,9 @@ defmodule Janus.SessionTest do
          %{
            connection: conn
          } do
+
+      Application.put_env(:elixir_janus, Janus.MockTransport, [keepalive_interval: 100])
+
       {:ok, _session} = Session.start_link(conn, @timeout)
 
       interval = Janus.MockTransport.keepalive_interval()
