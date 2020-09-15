@@ -76,11 +76,12 @@ defmodule Janus.MockTransport do
 
     {response, pairs} = get_response(payload, pairs)
 
-    response = if not is_nil(transaction) do
-      Map.put(response, "transaction", transaction)
-    else
-      response
-    end
+    response =
+      if not is_nil(transaction) do
+        Map.put(response, "transaction", transaction)
+      else
+        response
+      end
 
     send(self(), response)
 

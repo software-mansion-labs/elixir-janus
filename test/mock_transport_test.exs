@@ -33,7 +33,8 @@ defmodule Janus.MockTransportTest do
 
   describe "MockTransport should" do
     test "save request-result pairs in state" do
-      assert {:ok, %{pairs: @request_response_pairs}} = MockTransport.connect(@request_response_pairs)
+      assert {:ok, %{pairs: @request_response_pairs}} =
+               MockTransport.connect(@request_response_pairs)
     end
 
     test "return unchanged message from handle_info callback" do
