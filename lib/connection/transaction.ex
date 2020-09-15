@@ -4,6 +4,8 @@ defmodule Janus.Connection.Transaction do
   @transaction_length 32
   @insert_tries 5
 
+  @type call_type :: :keep_alive | :async_request | :sync_request
+
   require Logger
   # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
   # See https://www.phoenixframework.org/blog/the-road-to-2-million-websocket-connections
@@ -16,6 +18,7 @@ defmodule Janus.Connection.Transaction do
           :ets.tab(),
           GenServer.from(),
           integer,
+          call_type,
           DateTime.t(),
           integer,
           (non_neg_integer -> binary)
@@ -25,6 +28,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp \\ DateTime.utc_now(),
         tries \\ @insert_tries,
         transaction_generator \\ &:crypto.strong_rand_bytes/1
@@ -34,6 +38,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp,
         tries,
         transaction_generator
@@ -42,7 +47,7 @@ defmodule Janus.Connection.Transaction do
     transaction = generate_transaction!(transaction_generator)
     expires = expires_at(timestamp, timeout)
 
-    if :ets.insert_new(pending_calls_table, {transaction, from, expires}) do
+    if :ets.insert_new(pending_calls_table, {transaction, from, expires, type}) do
       transaction
     else
       "[#{__MODULE__} #{inspect(self())}] Generated already existing transaction: #{transaction}"
@@ -52,6 +57,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp,
         tries - 1,
         transaction_generator
@@ -59,7 +65,7 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0, _generator),
+  def insert_transaction(_pending_calls_table, _from, _timeout, _type, _timestamp, 0, _generator),
     do: raise("Could not insert transaction")
 
   defp expires_at(timestamp, timeout) do
@@ -75,14 +81,14 @@ defmodule Janus.Connection.Transaction do
   end
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
-          {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}
+          {:error, :outdated | :unknown_transaction} | {:ok, {GenServer.from(), call_type}}
   def transaction_status(pending_calls_table, transaction, timestamp \\ DateTime.utc_now()) do
     case :ets.lookup(pending_calls_table, transaction) do
-      [{_transaction, from, expires_at}] ->
+      [{_transaction, from, expires_at, type}] ->
         if timestamp |> DateTime.to_unix(:millisecond) > expires_at do
           {:error, :outdated}
         else
-          {:ok, from}
+          {:ok, {from, type}}
         end
 
       [] ->
@@ -97,7 +103,7 @@ defmodule Janus.Connection.Transaction do
 
     match_spec =
       Ex2ms.fun do
-        {_transaction, _from, expires_at} -> expires_at < ^timestamp
+        {_transaction, _from, expires_at, _type} -> expires_at < ^timestamp
       end
 
     case :ets.select_delete(pending_calls_table, match_spec) do
@@ -118,9 +124,12 @@ defmodule Janus.Connection.Transaction do
     transaction_status = transaction_status(pending_calls_table, transaction)
 
     case transaction_status do
-      {:ok, from} ->
+      {:ok, {from, type}} ->
         GenServer.reply(from, response)
-        :ets.delete(pending_calls_table, transaction)
+
+        if should_delete?(response, type) do
+          :ets.delete(pending_calls_table, transaction)
+        end
 
       {:error, :outdated} ->
         :ets.delete(pending_calls_table, transaction)
@@ -152,4 +161,8 @@ defmodule Janus.Connection.Transaction do
     }, data = #{inspect(data)}"
     |> Logger.warn()
   end
+
+  defp should_delete?(response, type)
+  defp should_delete?({:ok, %{"janus" => "ack"}}, :async_request), do: true
+  defp should_delete?(_, _), do: false
 end

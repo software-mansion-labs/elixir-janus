@@ -106,7 +106,11 @@ defmodule Janus.Connection do
   """
   @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
   def call(server, payload, timeout \\ @default_timeout) do
-    GenServer.call(server, {:call, payload, timeout}, timeout)
+    GenServer.call(server, {:call, payload, timeout, :sync_request}, timeout)
+  end
+
+  def call_async(server, payload, timeout \\ @default_timeout) do
+    GenServer.call(server, {:call, payload, timeout, :async_request}, timeout)
   end
 
   @doc """
@@ -160,7 +164,7 @@ defmodule Janus.Connection do
 
   @impl true
   def handle_call(
-        {:call, payload, timeout},
+        {:call, payload, timeout, type},
         from,
         state(
           transport_module: transport_module,
@@ -168,7 +172,7 @@ defmodule Janus.Connection do
           pending_calls_table: pending_calls_table
         ) = state
       ) do
-    transaction = Transaction.insert_transaction(pending_calls_table, from, timeout)
+    transaction = Transaction.insert_transaction(pending_calls_table, from, timeout, type)
     payload_with_transaction = Map.put(payload, :transaction, transaction)
 
     "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{

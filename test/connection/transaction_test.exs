@@ -29,7 +29,7 @@ defmodule Janus.Connection.TransactionTest do
 
   describe "Handles response for up to date request" do
     setup %{table: table} do
-      [transaction: Transaction.insert_transaction(table, from(), 10000)]
+      [transaction: Transaction.insert_transaction(table, from(), 10000, :sync_request)]
     end
 
     test "when result is a success", %{table: table, transaction: transaction} do
@@ -60,7 +60,7 @@ defmodule Janus.Connection.TransactionTest do
   describe "Handles response when" do
     test "request is outdated", %{table: table} do
       # Deliberetely inserting outdated record
-      :ets.insert(table, {@test_transaction, from(), 0})
+      :ets.insert(table, {@test_transaction, from(), 0, :sync_request})
 
       logs =
         capture_log(fn ->
@@ -89,21 +89,21 @@ defmodule Janus.Connection.TransactionTest do
         |> DateTime.add(@timeout, :millisecond)
         |> DateTime.to_unix(:millisecond)
 
-      transaction = Transaction.insert_transaction(table, from(), @timeout, @now)
+      transaction = Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now)
 
-      assert [{_, _, ^expires}] = :ets.lookup(table, transaction)
+      assert [{_, _, ^expires, _}] = :ets.lookup(table, transaction)
     end
 
     test "raises an error when tried too many_times", %{table: table} do
       assert_raise(RuntimeError, "Could not insert transaction", fn ->
-        Transaction.insert_transaction(table, from(), @timeout, @now, 0)
+        Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now, 0)
       end)
     end
   end
 
   describe "transaction_status returns" do
     setup %{table: table} do
-      [transaction: Transaction.insert_transaction(table, from(), @timeout, @now)]
+      [transaction: Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now)]
     end
 
     test ":ok tuple if transaction is up to date", %{table: table, transaction: transaction} do
@@ -126,10 +126,10 @@ defmodule Janus.Connection.TransactionTest do
   describe "cleanup_old_transaction" do
     setup %{table: table} do
       first_timeout = @timeout
-      Transaction.insert_transaction(table, from(), first_timeout, @now)
+      Transaction.insert_transaction(table, from(), first_timeout, :sync_request, @now)
 
       next_timeout = first_timeout + @timeout
-      Transaction.insert_transaction(table, from(), next_timeout, @now)
+      Transaction.insert_transaction(table, from(), next_timeout, :sync_request, @now)
 
       [first_timeout: first_timeout, next_timeout: next_timeout]
     end
