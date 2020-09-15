@@ -42,6 +42,8 @@ defmodule Janus.Connection.TransactionTest do
 
       assert_receive {@tag, ^response}
       assert logs =~ "Call OK:"
+      # Ensure transaction is deleted
+      assert {:error, :unknown_transaction} == Transaction.transaction_status(table, transaction)
     end
 
     test "when response is an error", %{table: table, transaction: transaction} do
@@ -55,16 +57,26 @@ defmodule Janus.Connection.TransactionTest do
       assert_receive {@tag, ^response}
       assert logs =~ "Call ERROR:"
     end
+
+    test "when result is a success it deletes transaction", %{
+      table: table,
+      transaction: transaction
+    } do
+      Transaction.handle_transaction({:ok, %{}}, transaction, table)
+      assert_receive {@tag, {:ok, _}}
+      assert {:error, :unknown_transaction} == Transaction.transaction_status(table, transaction)
+    end
   end
 
   describe "Handles response when" do
+    # TODO check deleting
     test "request is outdated", %{table: table} do
       # Deliberetely inserting outdated record
       :ets.insert(table, {@test_transaction, from(), 0, :sync_request})
 
       logs =
         capture_log(fn ->
-          Transaction.handle_transaction({:ok, %{}}, @test_transaction, table)
+          assert Transaction.handle_transaction({:ok, %{}}, @test_transaction, table)
         end)
 
       refute_receive _

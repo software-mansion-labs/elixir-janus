@@ -163,6 +163,6 @@ defmodule Janus.Connection.Transaction do
   end
 
   defp should_delete?(response, type)
-  defp should_delete?({:ok, %{"janus" => "ack"}}, :async_request), do: true
-  defp should_delete?(_, _), do: false
+  defp should_delete?({:ok, %{"janus" => "ack"}}, :async_request), do: false
+  defp should_delete?(_, _), do: true
 end
