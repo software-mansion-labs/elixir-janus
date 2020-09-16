@@ -69,7 +69,6 @@ defmodule Janus.Connection.TransactionTest do
   end
 
   describe "Handles response when" do
-    # TODO check deleting
     test "request is outdated", %{table: table} do
       # Deliberetely inserting outdated record
       :ets.insert(table, {@test_transaction, from(), 0, :sync_request})
@@ -91,6 +90,40 @@ defmodule Janus.Connection.TransactionTest do
 
       refute_receive _
       assert logs =~ "Received OK reply to the unknown_transaction call"
+    end
+  end
+
+  describe "Handles async response" do
+    setup %{table: table} do
+      [transaction: Transaction.insert_transaction(table, from(), 10000, :async_request)]
+    end
+
+    test "ignores ack", %{table: table, transaction: transaction} do
+      response = {:ok, %{"janus" => "ack"}}
+
+      logs =
+        capture_log(fn ->
+          Transaction.handle_transaction(response, transaction, table)
+        end)
+
+      assert_receive {@tag, ^response}
+      assert logs =~ "Call OK:"
+      # Ensure transaction is deleted
+      assert {:ok, _} = Transaction.transaction_status(table, transaction)
+    end
+
+    test "succesfully handles result", %{table: table, transaction: transaction} do
+      response = {:ok, %{"data" => "example"}}
+
+      logs =
+        capture_log(fn ->
+          Transaction.handle_transaction(response, transaction, table)
+        end)
+
+      assert_receive {@tag, ^response}
+      assert logs =~ "Call OK:"
+      # Ensure transaction is deleted
+      assert {:error, :unknown_transaction} == Transaction.transaction_status(table, transaction)
     end
   end
 
