@@ -2,7 +2,7 @@ defmodule Janus.MockTransport do
   @moduledoc """
   Allows to mock transport module in a predictable way.
 
-  One has to pass list of tuples representing request-response pairs to `c:connect/1` callback which will put them in returned state.
+  One has to pass list of tuples representing request-response pairs to `c:connect/1` callback which will put them in the returned state.
   For each `c:send/3` invocation `#{inspect(__MODULE__)}` will try to match on the first occurrence of given request and return
   corresponding response. The matched tuple is then removed returned state.
 
