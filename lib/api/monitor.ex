@@ -122,7 +122,7 @@ defmodule Janus.API.Monitor do
           Session.plugin_handle_id(),
           binary | nil
         ) ::
-          {:error, :atom} | {:ok, handle_info}
+          {:error, atom} | {:ok, handle_info}
   def handle_info(connection, session_id, handle_id, admin_secret \\ nil) do
     message =
       %{

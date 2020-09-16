@@ -4,9 +4,43 @@ defmodule Janus.SessionTest do
   alias Janus.HandlerTest.FakeHandler
 
   @timeout 100
+  @session_id 1
+
+  @request_response_pairs [
+    {
+      %{
+        janus: :create
+      },
+      %{
+        "janus" => "success",
+        "data" => %{"id" => @session_id}
+      }
+    },
+    {
+      %{
+        janus: :test,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "success",
+        "session_id" => @session_id,
+        "data" => %{"session_id" => @session_id}
+      }
+    },
+    {
+      %{
+        janus: :keepalive,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "ack"
+      }
+    }
+  ]
 
   setup do
-    {:ok, connection} = Connection.start(FakeTransport, [], FakeHandler, {})
+    {:ok, connection} =
+      Connection.start(Janus.MockTransport, @request_response_pairs, FakeHandler, {})
 
     %{connection: connection}
   end
@@ -19,9 +53,7 @@ defmodule Janus.SessionTest do
     test "apply session_id to executed request", %{connection: conn} do
       {:ok, session} = Session.start_link(conn, @timeout)
 
-      session_id = FakeTransport.default_session_id()
-
-      assert {:ok, %{"session_id" => ^session_id}} =
+      assert {:ok, %{"session_id" => @session_id}} =
                Session.execute_request(session, %{janus: :test})
     end
 
@@ -29,9 +61,11 @@ defmodule Janus.SessionTest do
          %{
            connection: conn
          } do
+      Application.put_env(:elixir_janus, Janus.MockTransport, keepalive_interval: 100)
+
       {:ok, _session} = Session.start_link(conn, @timeout)
 
-      interval = FakeTransport.keepalive_interval()
+      interval = Janus.MockTransport.keepalive_interval()
       :erlang.trace(conn, true, [:receive])
 
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
