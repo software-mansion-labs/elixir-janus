@@ -504,7 +504,7 @@ defmodule Janus.Connection do
            "janus" => "event",
            "transaction" => transaction,
            "plugindata" => %{
-             "plugin" => "janus.plugin.videoroom",
+             "plugin" => _plugin,
              "data" => data
            }
          },

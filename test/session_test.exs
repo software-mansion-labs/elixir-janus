@@ -29,6 +29,20 @@ defmodule Janus.SessionTest do
     },
     {
       %{
+        janus: :async_test,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "event",
+        "session_id" => @session_id,
+        "plugindata" => %{
+          "plugin" => "janus.plugin.videoroom",
+          "data" => %{"session_id" => @session_id}
+        }
+      }
+    },
+    {
+      %{
         janus: :keepalive,
         session_id: @session_id
       },
@@ -55,6 +69,13 @@ defmodule Janus.SessionTest do
 
       assert {:ok, %{"session_id" => @session_id}} =
                Session.execute_request(session, %{janus: :test})
+    end
+
+    test "apply session_id to executed async request", %{connection: conn} do
+      {:ok, session} = Session.start_link(conn, @timeout)
+
+      assert {:ok, %{"session_id" => @session_id}} =
+               Session.execute_async_request(session, %{janus: :async_test})
     end
 
     test "send keep-alive message via connection after keep-alive interval given by connection module",
