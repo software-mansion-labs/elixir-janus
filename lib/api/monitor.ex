@@ -68,7 +68,7 @@ defmodule Janus.API.Monitor do
             "janus" => "success",
             "sessions" => list
           }} <-
-           Connection.call(connection, message) do
+           Connection.call(connection, message, :sync_request) do
       {:ok, list}
     else
       {:error, _reason} = error ->
@@ -99,7 +99,7 @@ defmodule Janus.API.Monitor do
             "janus" => "success",
             "handles" => list
           }} <-
-           Connection.call(connection, message) do
+           Connection.call(connection, message, :sync_request) do
       {:ok, list}
     else
       {:error, _reason} = error ->
@@ -137,7 +137,7 @@ defmodule Janus.API.Monitor do
             "janus" => "success",
             "info" => info
           }} <-
-           Connection.call(connection, message) do
+           Connection.call(connection, message, :sync_request) do
       {:ok, take_accepted_keys_as_atoms(info)}
     else
       {:error, _reason} = error ->

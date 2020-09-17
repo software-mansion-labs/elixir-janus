@@ -104,13 +104,10 @@ defmodule Janus.Connection do
   * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info.
   """
-  @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
-  def call(server, payload, timeout \\ @default_timeout) do
-    GenServer.call(server, {:call, payload, timeout, :sync_request}, timeout)
-  end
-
-  def call_async(server, payload, timeout \\ @default_timeout) do
-    GenServer.call(server, {:call, payload, timeout, :async_request}, timeout)
+  @spec call(GenServer.server(), map, Transaction.call_type(), timeout) ::
+          {:ok, any} | {:error, any}
+  def call(server, payload, call_type, timeout \\ @default_timeout) do
+    GenServer.call(server, {:call, payload, timeout, call_type}, timeout)
   end
 
   @doc """
@@ -500,6 +497,20 @@ defmodule Janus.Connection do
          state
        ) do
     handle_successful_payload(transaction, payload, state)
+  end
+
+  defp handle_payload(
+         %{
+           "janus" => "event",
+           "transaction" => transaction,
+           "plugindata" => %{
+             "plugin" => "janus.plugin.videoroom",
+             "data" => data
+           }
+         },
+         state
+       ) do
+    handle_successful_payload(transaction, data, state)
   end
 
   # Catch-all
