@@ -43,7 +43,9 @@ defmodule Elixir.Janus.MixProject do
 
       # Test deps
       {:jason, "~> 1.2", only: :test},
-      {:ex_doc, "~> 0.22", only: [:test, :dev], runtime: false}
+      {:ex_doc, "~> 0.22", only: [:test, :dev], runtime: false},
+      {:mock, "~> 0.3.0", only: :test},
+      {:mox, "~> 0.5", only: :test}
     ]
   end
 
