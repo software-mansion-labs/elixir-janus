@@ -1,4 +1,4 @@
-defmodule Janus.HandlerTest.FakeHandler do
+defmodule Janus.Support.FakeHandler do
   # fake handler that updates state with currently invoked callback
   use Janus.Handler
 

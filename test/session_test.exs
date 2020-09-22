@@ -1,11 +1,11 @@
 defmodule Janus.SessionTest do
-  use ExUnit.Case
-  alias Janus.{Session, Connection}
-  alias Janus.HandlerTest.FakeHandler
+  use ExUnit.Case, async: false
 
+  import Mox
+  alias Janus.{Session, Connection}
+  alias Janus.Support.FakeHandler
   @timeout 100
   @session_id 1
-
   @request_response_pairs [
     {
       %{
@@ -61,10 +61,15 @@ defmodule Janus.SessionTest do
     }
   ]
 
+  setup :set_mox_global
+
   setup do
-    # TODO kill connection after test
+    stub(DateTimeMock, :utc_now, &DateTime.utc_now/0)
+
     {:ok, connection} =
       Connection.start(Janus.MockTransport, @request_response_pairs, FakeHandler, {})
+
+    on_exit(fn -> Process.exit(connection, :kill) end)
 
     %{connection: connection}
   end

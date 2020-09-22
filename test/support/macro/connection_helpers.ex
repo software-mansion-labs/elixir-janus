@@ -1,11 +1,12 @@
-defmodule Janus.HandlerTest.CallbackHelper do
-  # helper module that declares macro for testing `Janus.Handler`'s callback calls
-
-  # simple transport returning message given to `handle_info/2` without changes
-  # used by `Janus.Connection.handle_info/2`
-  defmodule SimpleTransport do
-    def handle_info(message, state) do
-      {:ok, message, state}
+defmodule Janus.Support.Macro do
+  defmacro assert_next_receive(pattern, timeout \\ 20000) do
+    quote do
+      receive do
+        {[], {:ok, message}} ->
+          assert ^unquote(pattern) = message
+      after
+        unquote(timeout) -> flunk("Response has not been received")
+      end
     end
   end
 
@@ -18,14 +19,21 @@ defmodule Janus.HandlerTest.CallbackHelper do
     quote do
       test "#{inspect(unquote(fun))} callback" do
         alias Janus.Connection
-        alias Janus.HandlerTest.FakeHandler
-        alias Janus.HandlerTest.FakeHandler.Payloads
+        alias Janus.MockTransport
+        alias Janus.Support.FakeHandler
+        alias Janus.Support.FakeHandler.Payloads
 
-        state = {:state, SimpleTransport, %{}, FakeHandler, %{callback: nil}, nil}
+        state =
+          state(
+            transport_module: MockTransport,
+            handler_module: FakeHandler,
+            handler_state: %{callback: nil}
+          )
+
         message = apply(Payloads, unquote(event), [])
 
         {:noreply, new_state} = Connection.handle_info(message, state)
-        {:state, _, _, _, %{callback: callback}, _} = new_state
+        state(handler_state: %{callback: callback}) = new_state
 
         assert unquote(fun) == callback
       end

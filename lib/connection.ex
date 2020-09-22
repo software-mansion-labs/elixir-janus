@@ -15,16 +15,17 @@ defmodule Janus.Connection do
   alias Janus.Connection.Transaction
 
   @default_timeout 5000
-  @cleanup_interval 60000
+  @default_cleanup_interval 60000
 
   @type t :: GenServer.server()
 
-  Record.defrecordp(:state,
+  Record.defrecord(:state,
     transport_module: nil,
     transport_state: nil,
     handler_module: nil,
     handler_state: nil,
-    pending_calls_table: nil
+    pending_calls_table: nil,
+    cleanup_interval: nil
   )
 
   @doc """
@@ -69,9 +70,16 @@ defmodule Janus.Connection do
     do: do_start(:start, transport_module, transport_args, handler_module, handler_args, options)
 
   defp do_start(method, transport_module, transport_args, handler_module, handler_args, options) do
+    args = %{
+      transport_module: transport_module,
+      transport_args: transport_args,
+      handler_module: handler_module,
+      handler_args: handler_args
+    }
+
     apply(GenServer, method, [
       __MODULE__,
-      {transport_module, transport_args, handler_module, handler_args},
+      args,
       options
     ])
   end
@@ -129,7 +137,14 @@ defmodule Janus.Connection do
   # Callbacks
 
   @impl true
-  def init({transport_module, transport_args, handler_module, handler_args}) do
+  def init(
+        %{
+          transport_module: transport_module,
+          transport_args: transport_args,
+          handler_module: handler_module,
+          handler_args: handler_args
+        } = args
+      ) do
     Logger.debug(
       "[#{__MODULE__} #{inspect(self())}] Init: transport_module = #{inspect(transport_module)}, handler_module = #{
         inspect(handler_module)
@@ -139,8 +154,9 @@ defmodule Janus.Connection do
     withl handler: {:ok, handler_state} <- handler_module.init(handler_args),
           connect: {:ok, transport_state} <- transport_module.connect(transport_args) do
       pending_calls_table = Transaction.init_transaction_call_table()
+      cleanup_interval = args[:cleanup_interval] || @default_cleanup_interval
 
-      Process.send_after(self(), :cleanup, @cleanup_interval)
+      Process.send_after(self(), :cleanup, cleanup_interval)
 
       {:ok,
        state(
@@ -148,7 +164,8 @@ defmodule Janus.Connection do
          transport_state: transport_state,
          handler_module: handler_module,
          handler_state: handler_state,
-         pending_calls_table: pending_calls_table
+         pending_calls_table: pending_calls_table,
+         cleanup_interval: cleanup_interval
        )}
     else
       handler: {:error, reason} ->
@@ -199,10 +216,14 @@ defmodule Janus.Connection do
   end
 
   @impl true
-  def handle_info(:cleanup, state(pending_calls_table: pending_calls_table) = state) do
+  def handle_info(
+        :cleanup,
+        state(pending_calls_table: pending_calls_table, cleanup_interval: cleanup_interval) =
+          state
+      ) do
     Transaction.cleanup_old_transactions(pending_calls_table)
 
-    Process.send_after(self(), :cleanup, @cleanup_interval)
+    Process.send_after(self(), :cleanup, cleanup_interval)
     {:noreply, state}
   end
 
