@@ -125,9 +125,8 @@ defmodule Janus.Connection.Transaction do
 
     case transaction_status do
       {:ok, {from, type}} ->
-        GenServer.reply(from, response)
-
         if should_delete?(response, type) do
+          GenServer.reply(from, response)
           :ets.delete(pending_calls_table, transaction)
         end
 

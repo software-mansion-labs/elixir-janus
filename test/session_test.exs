@@ -43,6 +43,15 @@ defmodule Janus.SessionTest do
     },
     {
       %{
+        janus: :ack,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "ack"
+      }
+    },
+    {
+      %{
         janus: :keepalive,
         session_id: @session_id
       },
@@ -53,6 +62,7 @@ defmodule Janus.SessionTest do
   ]
 
   setup do
+    # TODO kill connection after test
     {:ok, connection} =
       Connection.start(Janus.MockTransport, @request_response_pairs, FakeHandler, {})
 
@@ -69,6 +79,20 @@ defmodule Janus.SessionTest do
 
       assert {:ok, %{"session_id" => @session_id}} =
                Session.execute_request(session, %{janus: :test})
+    end
+
+    test "ignore ack", %{connection: conn} do
+      {:ok, session} = Session.start(conn, @timeout)
+      Process.monitor(session)
+
+      assert {timeout, _} = catch_exit(Session.execute_async_request(session, %{janus: :ack}, 10))
+
+      assert {:timeout,
+              {GenServer, :call,
+               [_, {:call, %{janus: :ack, session_id: 1}, 10, :async_request}, _]}} = timeout
+
+      assert_receive {:DOWN, _, :process, _, message_timeout}
+      assert message_timeout == timeout
     end
 
     test "apply session_id to executed async request", %{connection: conn} do

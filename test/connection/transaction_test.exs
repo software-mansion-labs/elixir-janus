@@ -106,7 +106,6 @@ defmodule Janus.Connection.TransactionTest do
           Transaction.handle_transaction(response, transaction, table)
         end)
 
-      assert_receive {@tag, ^response}
       assert logs =~ "Call OK:"
       # Ensure transaction is deleted
       assert {:ok, _} = Transaction.transaction_status(table, transaction)
