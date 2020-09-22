@@ -73,7 +73,7 @@ defmodule Janus.ConnectionTest do
 
     test "flush expired transaction", %{table: table} do
       past = @now |> DateTime.add(-20_000, :second)
-      transaction = Transaction.insert_transaction(table, self(), 0, past)
+      transaction = Transaction.insert_transaction(table, self(), 0, :sync_request, past)
 
       Connection.handle_info(:cleanup, state(pending_calls_table: table, cleanup_interval: 500))
       assert {:error, :unknown_transaction} = Transaction.transaction_status(table, transaction)
@@ -96,7 +96,7 @@ defmodule Janus.ConnectionTest do
 
     test "not respond to expired transaction", %{table: table, state: state} do
       past = @now |> DateTime.add(-20_000, :second)
-      transaction = Transaction.insert_transaction(table, from(), 0, past)
+      transaction = Transaction.insert_transaction(table, from(), 0, :sync_request, past)
       response = %{"janus" => "ack"}
       message = Map.merge(response, %{"transaction" => transaction})
 
@@ -112,7 +112,8 @@ defmodule Janus.ConnectionTest do
       janus_response = %{"janus" => "success"}
 
       transactions =
-        for _ <- 1..batch_size, do: Transaction.insert_transaction(table, from(), timeout)
+        for _ <- 1..batch_size,
+            do: Transaction.insert_transaction(table, from(), timeout, :sync_request)
 
       messages =
         for t <- transactions, do: Map.merge(janus_response, %{"data" => t, "transaction" => t})
@@ -169,7 +170,7 @@ defmodule Janus.ConnectionTest do
         logs =
           capture_log(fn ->
             Connection.handle_call(
-              {:call, payload, timeout},
+              {:call, payload, timeout, :sync_request},
               self(),
               state(state, transport_module: ValidTransportMock)
             )
@@ -177,7 +178,7 @@ defmodule Janus.ConnectionTest do
 
         transaction = Regex.run(~r/"\S*"/, logs) |> to_string |> String.replace(~s("), "")
 
-        assert [{^transaction, _, _}] = :ets.lookup(table, transaction)
+        assert [{^transaction, _, _, _}] = :ets.lookup(table, transaction)
         assert logs =~ inspect(payload)
         assert_called(ValidTransportMock.send(:_, :_, :_))
       end
