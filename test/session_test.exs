@@ -38,7 +38,9 @@ defmodule Janus.SessionTest do
         "plugindata" => %{
           "plugin" => "janus.plugin.videoroom",
           "data" => %{"session_id" => @session_id}
-        }
+        },
+        "jsep" => "jsep",
+        "sender" => 213
       }
     },
     {
@@ -103,7 +105,7 @@ defmodule Janus.SessionTest do
     test "apply session_id to executed async request", %{connection: conn} do
       {:ok, session} = Session.start_link(conn, @timeout)
 
-      assert {:ok, %{"session_id" => @session_id}} =
+      assert {:ok, %{"session_id" => @session_id, "jsep" => "jsep", "sender" => 213}} =
                Session.execute_async_request(session, %{janus: :async_test})
     end
 
