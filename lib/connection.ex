@@ -526,18 +526,12 @@ defmodule Janus.Connection do
            "transaction" => transaction,
            "plugindata" => %{
              "plugin" => _plugin,
-             "data" => data
-           },
-           "jsep" => jsep,
-           "sender" => sender
-         },
+             "data" => _data
+           }
+         } = payload,
          state
        ) do
-    data =
-      data
-      |> Map.put("jsep", jsep)
-      |> Map.put("sender", sender)
-
+    data = payload |> Map.take(["janus", "session_id", "plugindata", "jsep", "sender"])
     handle_successful_payload(transaction, data, state)
   end
 
