@@ -29,6 +29,31 @@ defmodule Janus.SessionTest do
     },
     {
       %{
+        janus: :async_test,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "event",
+        "session_id" => @session_id,
+        "plugindata" => %{
+          "plugin" => "janus.plugin.videoroom",
+          "data" => %{"session_id" => @session_id}
+        },
+        "jsep" => "jsep",
+        "sender" => 213
+      }
+    },
+    {
+      %{
+        janus: :ack,
+        session_id: @session_id
+      },
+      %{
+        "janus" => "ack"
+      }
+    },
+    {
+      %{
         janus: :keepalive,
         session_id: @session_id
       },
@@ -63,6 +88,29 @@ defmodule Janus.SessionTest do
                Session.execute_request(session, %{janus: :test})
     end
 
+    test "ignore ack", %{connection: conn} do
+      {:ok, session} = Session.start(conn, @timeout)
+      Process.monitor(session)
+
+      assert {timeout, _} = catch_exit(Session.execute_async_request(session, %{janus: :ack}, 10))
+
+      assert {:timeout,
+              {GenServer, :call,
+               [_, {:call, %{janus: :ack, session_id: 1}, 10, :async_request}, _]}} = timeout
+
+      assert_receive {:DOWN, _, :process, _, message_timeout}
+      assert message_timeout == timeout
+    end
+
+    # TODO: Add a test for receiving two messages: ACK, then reply and the other way around
+
+    test "apply session_id to executed async request", %{connection: conn} do
+      {:ok, session} = Session.start_link(conn, @timeout)
+
+      assert {:ok, %{"session_id" => @session_id, "jsep" => "jsep", "sender" => 213}} =
+               Session.execute_async_request(session, %{janus: :async_test})
+    end
+
     test "send keep-alive message via connection after keep-alive interval given by connection module",
          %{
            connection: conn
@@ -77,7 +125,6 @@ defmodule Janus.SessionTest do
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
     end
 
-    @tag :capture_log
     test "stop on connection exit", %{connection: conn} do
       {:ok, session} = Session.start(conn, @timeout)
       Process.monitor(session)

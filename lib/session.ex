@@ -103,7 +103,11 @@ defmodule Janus.Session do
   """
   @spec execute_request(Janus.Session.t(), message_t(), timeout_t()) :: {:ok, any} | {:error, any}
   def execute_request(session, message, timeout \\ @default_timeout) do
-    GenServer.call(session, {:execute_message, message, timeout})
+    GenServer.call(session, {:execute_message, message, timeout, :sync_request})
+  end
+
+  def execute_async_request(session, message, timeout \\ @default_timeout) do
+    GenServer.call(session, {:execute_message, message, timeout, :async_request})
   end
 
   @doc """
@@ -120,7 +124,7 @@ defmodule Janus.Session do
   def init({connection, timeout}) do
     Process.monitor(connection)
 
-    case Connection.call(connection, %{janus: :create}, timeout) do
+    case Connection.call(connection, %{janus: :create}, :sync_request, timeout) do
       {:ok, %{"id" => session_id}} ->
         state = %{session_id: session_id, connection: connection}
 
@@ -142,12 +146,12 @@ defmodule Janus.Session do
 
   @impl true
   def handle_call(
-        {:execute_message, message, timeout},
+        {:execute_message, message, timeout, call_type},
         _from,
         %{connection: connection, session_id: session_id} = state
       ) do
     message = Map.put(message, :session_id, session_id)
-    response = Connection.call(connection, message, timeout)
+    response = Connection.call(connection, message, call_type, timeout)
 
     {:reply, response, state}
   end
@@ -165,7 +169,7 @@ defmodule Janus.Session do
           keepalive_interval: interval
         } = state
       ) do
-    Connection.call(connection, keep_alive_message(session_id))
+    Connection.call(connection, keep_alive_message(session_id), :sync_request)
     Process.send_after(self(), :keep_alive, interval)
     {:noreply, state}
   end

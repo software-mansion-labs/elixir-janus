@@ -29,7 +29,7 @@ defmodule Janus.Connection.TransactionTest do
 
   describe "Handles response for up to date request" do
     setup %{table: table} do
-      [transaction: Transaction.insert_transaction(table, from(), 10000, @now)]
+      [transaction: Transaction.insert_transaction(table, from(), 10000, :sync_request, @now)]
     end
 
     test "when result is a success", %{table: table, transaction: transaction} do
@@ -41,7 +41,10 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       assert_receive {@tag, ^response}
-      assert logs =~ "Call OK:"
+      assert logs =~ "Deleting"
+      # Ensure transaction is deleted
+      assert {:error, :unknown_transaction} ==
+               Transaction.transaction_status(table, transaction, @now)
     end
 
     test "when response is an error", %{table: table, transaction: transaction} do
@@ -53,14 +56,25 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       assert_receive {@tag, ^response}
-      assert logs =~ "Call ERROR:"
+      assert logs =~ "Deleting"
+    end
+
+    test "when result is a success it deletes transaction", %{
+      table: table,
+      transaction: transaction
+    } do
+      Transaction.handle_transaction({:ok, %{}}, transaction, table, @now)
+      assert_receive {@tag, {:ok, _}}
+
+      assert {:error, :unknown_transaction} ==
+               Transaction.transaction_status(table, transaction, @now)
     end
   end
 
   describe "Handles response when" do
     test "request is outdated", %{table: table} do
       # Deliberetely inserting outdated record
-      :ets.insert(table, {@test_transaction, from(), 0})
+      :ets.insert(table, {@test_transaction, from(), 0, :sync_request})
 
       logs =
         capture_log(fn ->
@@ -68,7 +82,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       refute_receive _
-      assert logs =~ "Received OK reply to the outdated call"
+      assert logs =~ "outdated"
     end
 
     test "when request is unkown", %{table: table} do
@@ -78,7 +92,41 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       refute_receive _
-      assert logs =~ "Received OK reply to the unknown_transaction call"
+      assert logs =~ "unknown"
+    end
+  end
+
+  describe "Handles async response" do
+    setup %{table: table} do
+      [transaction: Transaction.insert_transaction(table, from(), 10000, :async_request, @now)]
+    end
+
+    test "ignores ack", %{table: table, transaction: transaction} do
+      response = {:ok, %{"janus" => "ack"}}
+
+      logs =
+        capture_log(fn ->
+          Transaction.handle_transaction(response, transaction, table, @now)
+        end)
+
+      assert logs =~ "Keeping transaction"
+      # Ensure transaction is not deleted
+      assert {:ok, _} = Transaction.transaction_status(table, transaction, @now)
+    end
+
+    test "succesfully handles result", %{table: table, transaction: transaction} do
+      response = {:ok, %{"data" => "example"}}
+
+      logs =
+        capture_log(fn ->
+          Transaction.handle_transaction(response, transaction, table, @now)
+        end)
+
+      assert_receive {@tag, ^response}
+      assert logs =~ "Deleting"
+      # Ensure transaction is deleted
+      assert {:error, :unknown_transaction} ==
+               Transaction.transaction_status(table, transaction, @now)
     end
   end
 
@@ -89,21 +137,21 @@ defmodule Janus.Connection.TransactionTest do
         |> DateTime.add(@timeout, :millisecond)
         |> DateTime.to_unix(:millisecond)
 
-      transaction = Transaction.insert_transaction(table, from(), @timeout, @now)
+      transaction = Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now)
 
-      assert [{_, _, ^expires}] = :ets.lookup(table, transaction)
+      assert [{_, _, ^expires, _}] = :ets.lookup(table, transaction)
     end
 
     test "raises an error when tried too many_times", %{table: table} do
       assert_raise(RuntimeError, "Could not insert transaction", fn ->
-        Transaction.insert_transaction(table, from(), @timeout, @now, 0)
+        Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now, 0)
       end)
     end
   end
 
   describe "transaction_status returns" do
     setup %{table: table} do
-      [transaction: Transaction.insert_transaction(table, from(), @timeout, @now)]
+      [transaction: Transaction.insert_transaction(table, from(), @timeout, :sync_request, @now)]
     end
 
     test ":ok tuple if transaction is up to date", %{table: table, transaction: transaction} do
@@ -129,10 +177,10 @@ defmodule Janus.Connection.TransactionTest do
   describe "cleanup_old_transaction" do
     setup %{table: table} do
       first_timeout = @timeout
-      Transaction.insert_transaction(table, from(), first_timeout, @now)
+      Transaction.insert_transaction(table, from(), first_timeout, :sync_request, @now)
 
       next_timeout = first_timeout + @timeout
-      Transaction.insert_transaction(table, from(), next_timeout, @now)
+      Transaction.insert_transaction(table, from(), next_timeout, :sync_request, @now)
 
       [first_timeout: first_timeout, next_timeout: next_timeout]
     end

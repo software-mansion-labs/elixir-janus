@@ -112,9 +112,10 @@ defmodule Janus.Connection do
   * `{:gateway, code, info}` - it means that the call itself succeeded but the
     gateway returned an error of the given code and info.
   """
-  @spec call(GenServer.server(), map, timeout) :: {:ok, any} | {:error, any}
-  def call(server, payload, timeout \\ @default_timeout) do
-    GenServer.call(server, {:call, payload, timeout}, timeout)
+  @spec call(GenServer.server(), map, Transaction.call_type(), timeout) ::
+          {:ok, any} | {:error, any}
+  def call(server, payload, call_type, timeout \\ @default_timeout) do
+    GenServer.call(server, {:call, payload, timeout, call_type}, timeout)
   end
 
   @doc """
@@ -177,7 +178,7 @@ defmodule Janus.Connection do
 
   @impl true
   def handle_call(
-        {:call, payload, timeout},
+        {:call, payload, timeout, type},
         from,
         state(
           transport_module: transport_module,
@@ -185,7 +186,7 @@ defmodule Janus.Connection do
           pending_calls_table: pending_calls_table
         ) = state
       ) do
-    transaction = Transaction.insert_transaction(pending_calls_table, from, timeout)
+    transaction = Transaction.insert_transaction(pending_calls_table, from, timeout, type)
     payload_with_transaction = Map.put(payload, :transaction, transaction)
 
     "[#{__MODULE__} #{inspect(self())}] Call: transaction = #{inspect(transaction)}, payload = #{
@@ -517,6 +518,21 @@ defmodule Janus.Connection do
          state
        ) do
     handle_successful_payload(transaction, payload, state)
+  end
+
+  defp handle_payload(
+         %{
+           "janus" => "event",
+           "transaction" => transaction,
+           "plugindata" => %{
+             "plugin" => _plugin,
+             "data" => _data
+           }
+         } = payload,
+         state
+       ) do
+    data = payload |> Map.take(["janus", "session_id", "plugindata", "jsep", "sender"])
+    handle_successful_payload(transaction, data, state)
   end
 
   # Catch-all

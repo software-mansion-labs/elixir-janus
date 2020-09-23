@@ -5,6 +5,8 @@ defmodule Janus.Connection.Transaction do
   @transaction_length 32
   @insert_tries 5
 
+  @type call_type :: :keep_alive | :async_request | :sync_request
+
   require Logger
   # We use duplicate_bag as we ensure key uniqueness by ourselves and it is faster.
   # See https://www.phoenixframework.org/blog/the-road-to-2-million-websocket-connections
@@ -17,6 +19,7 @@ defmodule Janus.Connection.Transaction do
           :ets.tab(),
           GenServer.from(),
           integer,
+          call_type,
           DateTime.t(),
           integer,
           (non_neg_integer -> binary)
@@ -26,6 +29,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp \\ DateTimeUtils.utc_now(),
         tries \\ @insert_tries,
         transaction_generator \\ &:crypto.strong_rand_bytes/1
@@ -35,6 +39,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp,
         tries,
         transaction_generator
@@ -43,7 +48,7 @@ defmodule Janus.Connection.Transaction do
     transaction = generate_transaction!(transaction_generator)
     expires = expires_at(timestamp, timeout)
 
-    if :ets.insert_new(pending_calls_table, {transaction, from, expires}) do
+    if :ets.insert_new(pending_calls_table, {transaction, from, expires, type}) do
       transaction
     else
       "[#{__MODULE__} #{inspect(self())}] Generated already existing transaction: #{transaction}"
@@ -53,6 +58,7 @@ defmodule Janus.Connection.Transaction do
         pending_calls_table,
         from,
         timeout,
+        type,
         timestamp,
         tries - 1,
         transaction_generator
@@ -60,7 +66,7 @@ defmodule Janus.Connection.Transaction do
     end
   end
 
-  def insert_transaction(_pending_calls_table, _from, _timeout, _timestamp, 0, _generator),
+  def insert_transaction(_pending_calls_table, _from, _timeout, _type, _timestamp, 0, _generator),
     do: raise("Could not insert transaction")
 
   defp expires_at(timestamp, timeout) do
@@ -76,14 +82,14 @@ defmodule Janus.Connection.Transaction do
   end
 
   @spec transaction_status(:ets.tab(), binary, DateTime.t()) ::
-          {:error, :outdated | :unknown_transaction} | {:ok, GenServer.from()}
+          {:error, :outdated | :unknown_transaction} | {:ok, {GenServer.from(), call_type}}
   def transaction_status(pending_calls_table, transaction, timestamp \\ DateTimeUtils.utc_now()) do
     case :ets.lookup(pending_calls_table, transaction) do
-      [{_transaction, from, expires_at}] ->
+      [{_transaction, from, expires_at, type}] ->
         if timestamp |> DateTime.to_unix(:millisecond) > expires_at do
           {:error, :outdated}
         else
-          {:ok, from}
+          {:ok, {from, type}}
         end
 
       [] ->
@@ -98,7 +104,7 @@ defmodule Janus.Connection.Transaction do
 
     match_spec =
       Ex2ms.fun do
-        {_transaction, _from, expires_at} -> expires_at < ^timestamp
+        {_transaction, _from, expires_at, _type} -> expires_at < ^timestamp
       end
 
     case :ets.select_delete(pending_calls_table, match_spec) do
@@ -124,38 +130,43 @@ defmodule Janus.Connection.Transaction do
     transaction_status = transaction_status(pending_calls_table, transaction, timestamp)
 
     case transaction_status do
-      {:ok, from} ->
-        GenServer.reply(from, response)
-        :ets.delete(pending_calls_table, transaction)
+      {:ok, {from, type}} ->
+        if should_delete?(response, type) do
+          GenServer.reply(from, response)
+          :ets.delete(pending_calls_table, transaction)
+
+          "Deleting transaction"
+          |> build_log_message(transaction, response)
+          |> Logger.debug()
+        else
+          "Keeping transaction, awaiting another response"
+          |> build_log_message(transaction, response)
+          |> Logger.debug()
+        end
 
       {:error, :outdated} ->
         :ets.delete(pending_calls_table, transaction)
 
+        "Deleting outdated transaction"
+        |> build_log_message(transaction, response)
+        |> Logger.warn()
+
       {:error, :unknown_transaction} ->
-        # NOOP
-        nil
+        "Ignoring unknown transaction"
+        |> build_log_message(transaction, response)
+        |> Logger.warn()
     end
 
-    call_result =
-      case response do
-        {:ok, _} -> "OK"
-        {:error, _} -> "ERROR"
-      end
-
-    log_transaction_status(transaction_status, transaction, response, call_result)
+    :ok
   end
 
-  defp log_transaction_status({:ok, _from}, transaction, data, call_result) do
-    "[#{__MODULE__} #{inspect(self())}] Call #{call_result}: transaction = #{inspect(transaction)}, data = #{
+  defp build_log_message(message, transaction, data) do
+    "[#{__MODULE__} #{inspect(self())}] #{message}. id = #{inspect(transaction)}, received data = #{
       inspect(data)
     }"
-    |> Logger.debug()
   end
 
-  defp log_transaction_status({:error, reason}, transaction, data, call_result) do
-    "[#{__MODULE__} #{inspect(self())}] Received #{call_result} reply to the #{reason} call: transaction = #{
-      inspect(transaction)
-    }, data = #{inspect(data)}"
-    |> Logger.warn()
-  end
+  defp should_delete?(response, type)
+  defp should_delete?({:ok, %{"janus" => "ack"}}, :async_request), do: false
+  defp should_delete?(_, _), do: true
 end

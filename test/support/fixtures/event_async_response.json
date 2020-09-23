@@ -1,0 +1,26 @@
+{
+  "janus": "event",
+  "session_id": 284555935607152,
+  "transaction": "uowBAmXXx2Hx",
+  "sender": 366195598075240,
+  "plugindata": {
+    "plugin": "janus.plugin.videoroom",
+    "data": {
+      "videoroom": "joined",
+      "room": 1234,
+      "description": "Demo Room",
+      "id": 363558811670064,
+      "private_id": 3312603705,
+      "publishers": [
+        {
+          "id": 8284916785751706,
+          "display": "Janus",
+          "audio_codec": "opus",
+          "video_codec": "vp8",
+          "simulcast": true,
+          "talking": false
+        }
+      ]
+    }
+  }
+}
