@@ -102,6 +102,8 @@ defmodule Janus.SessionTest do
       assert message_timeout == timeout
     end
 
+    # TODO: Add a test for receiving two messages: ACK, then reply and the other way around
+
     test "apply session_id to executed async request", %{connection: conn} do
       {:ok, session} = Session.start_link(conn, @timeout)
 
