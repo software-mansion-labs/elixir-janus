@@ -102,7 +102,7 @@ defmodule Janus.ConnectionTest do
 
       Connection.handle_info(message, state)
 
-      refute_receive response, @receive_refute
+      refute_receive ^response, @receive_refute
       assert {:error, :unknown_transaction} = Transaction.transaction_status(table, transaction)
     end
 

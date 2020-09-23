@@ -123,7 +123,6 @@ defmodule Janus.SessionTest do
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval
     end
 
-    @tag :capture_log
     test "stop on connection exit", %{connection: conn} do
       {:ok, session} = Session.start(conn, @timeout)
       Process.monitor(session)

@@ -134,37 +134,36 @@ defmodule Janus.Connection.Transaction do
         if should_delete?(response, type) do
           GenServer.reply(from, response)
           :ets.delete(pending_calls_table, transaction)
+
+          "Deleting transaction"
+          |> build_log_message(transaction, response)
+          |> Logger.debug()
+        else
+          "Keeping transaction, awaiting another response"
+          |> build_log_message(transaction, response)
+          |> Logger.debug()
         end
 
       {:error, :outdated} ->
         :ets.delete(pending_calls_table, transaction)
 
+        "Deleting outdated transaction"
+        |> build_log_message(transaction, response)
+        |> Logger.warn()
+
       {:error, :unknown_transaction} ->
-        # NOOP
-        nil
+        "Ignoring unknown transaction"
+        |> build_log_message(transaction, response)
+        |> Logger.warn()
     end
 
-    call_result =
-      case response do
-        {:ok, _} -> "OK"
-        {:error, _} -> "ERROR"
-      end
-
-    log_transaction_status(transaction_status, transaction, response, call_result)
+    :ok
   end
 
-  defp log_transaction_status({:ok, _from}, transaction, data, call_result) do
-    "[#{__MODULE__} #{inspect(self())}] Call #{call_result}: transaction = #{inspect(transaction)}, data = #{
+  defp build_log_message(message, transaction, data) do
+    "[#{__MODULE__} #{inspect(self())}] #{message}. id = #{inspect(transaction)}, received data = #{
       inspect(data)
     }"
-    |> Logger.debug()
-  end
-
-  defp log_transaction_status({:error, reason}, transaction, data, call_result) do
-    "[#{__MODULE__} #{inspect(self())}] Received #{call_result} reply to the #{reason} call: transaction = #{
-      inspect(transaction)
-    }, data = #{inspect(data)}"
-    |> Logger.warn()
   end
 
   defp should_delete?(response, type)

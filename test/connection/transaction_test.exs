@@ -41,7 +41,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       assert_receive {@tag, ^response}
-      assert logs =~ "Call OK:"
+      assert logs =~ "Deleting"
       # Ensure transaction is deleted
       assert {:error, :unknown_transaction} ==
                Transaction.transaction_status(table, transaction, @now)
@@ -56,7 +56,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       assert_receive {@tag, ^response}
-      assert logs =~ "Call ERROR:"
+      assert logs =~ "Deleting"
     end
 
     test "when result is a success it deletes transaction", %{
@@ -82,7 +82,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       refute_receive _
-      assert logs =~ "Received OK reply to the outdated call"
+      assert logs =~ "outdated"
     end
 
     test "when request is unkown", %{table: table} do
@@ -92,7 +92,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       refute_receive _
-      assert logs =~ "Received OK reply to the unknown_transaction call"
+      assert logs =~ "unknown"
     end
   end
 
@@ -109,8 +109,8 @@ defmodule Janus.Connection.TransactionTest do
           Transaction.handle_transaction(response, transaction, table, @now)
         end)
 
-      assert logs =~ "Call OK:"
-      # Ensure transaction is deleted
+      assert logs =~ "Keeping transaction"
+      # Ensure transaction is not deleted
       assert {:ok, _} = Transaction.transaction_status(table, transaction, @now)
     end
 
@@ -123,7 +123,7 @@ defmodule Janus.Connection.TransactionTest do
         end)
 
       assert_receive {@tag, ^response}
-      assert logs =~ "Call OK:"
+      assert logs =~ "Deleting"
       # Ensure transaction is deleted
       assert {:error, :unknown_transaction} ==
                Transaction.transaction_status(table, transaction, @now)
