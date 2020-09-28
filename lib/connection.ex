@@ -351,6 +351,10 @@ defmodule Janus.Connection do
     end
   end
 
+  ########
+  # Event Emitter payloads
+  ########
+
   # Handle event created
   defp handle_payload(
          %{
@@ -484,17 +488,37 @@ defmodule Janus.Connection do
     end
   end
 
+  # Plugin-originated events
+  defp handle_payload(
+         %{"event" => event, "type" => 64, "timestamp" => timestamp} = payload,
+         state(handler_module: handler_module, handler_state: handler_state) = state
+       ) do
+    case handler_module.handle_plugin_event(
+           payload["session_id"],
+           payload["handle_id"],
+           event["plugin"],
+           event["data"],
+           payload["emitter"],
+           payload["opaque_id"],
+           DateTime.from_unix!(timestamp, :microsecond),
+           handler_state
+         ) do
+      {:noreply, new_handler_state} ->
+        {:ok, state(state, handler_state: new_handler_state)}
+    end
+  end
+
   # Handles event without subtype FIXME
   defp handle_payload(
          %{"emitter" => emitter, "event" => event, "type" => type, "timestamp" => timestamp},
-         state(handler_module: _handler_module, handler_state: _handler_state) = s
+         state(handler_module: _handler_module, handler_state: _handler_state) = state
        ) do
     "[#{__MODULE__} #{inspect(self())}] Event: emitter = #{inspect(emitter)}, event = #{
       inspect(event)
     }, type = #{inspect(type)}, timestamp = #{inspect(timestamp)}"
     |> Logger.warn()
 
-    {:ok, s}
+    {:ok, state}
   end
 
   # Payloads related to the events might come batched in lists, handle them recursively
@@ -520,6 +544,7 @@ defmodule Janus.Connection do
     handle_successful_payload(transaction, payload, state)
   end
 
+  # Async response to a plugin request
   defp handle_payload(
          %{
            "janus" => "event",
@@ -535,12 +560,41 @@ defmodule Janus.Connection do
     handle_successful_payload(transaction, data, state)
   end
 
+  # VideoRoom Events on attached handle
+  # FIXME: this should be handled by plugin module
+  defp handle_payload(
+         %{
+           "janus" => "event",
+           "plugindata" => %{
+             "plugin" => plugin,
+             "data" => data
+           },
+           "sender" => sender_handle_id,
+           "session_id" => session_id
+         },
+         state(handler_module: handler_module, handler_state: handler_state) = state
+       ) do
+    case handler_module.handle_plugin_event(
+           session_id,
+           sender_handle_id,
+           plugin,
+           data,
+           nil,
+           nil,
+           nil,
+           handler_state
+         ) do
+      {:noreply, new_handler_state} ->
+        {:ok, state(state, handler_state: new_handler_state)}
+    end
+  end
+
   # Catch-all
-  defp handle_payload(payload, s) do
+  defp handle_payload(payload, state) do
     "[#{__MODULE__} #{inspect(self())}] Received unhandled payload: payload = #{inspect(payload)}"
     |> Logger.warn()
 
-    {:ok, s}
+    {:ok, state}
   end
 
   defp handle_successful_payload(

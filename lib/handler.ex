@@ -63,6 +63,16 @@ defmodule Janus.Handler do
               DateTime.t(),
               state
             ) :: {:noreply, state}
+  @callback handle_plugin_event(
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
+              plugin :: String.t(),
+              event_data :: map(),
+              emitter(),
+              opaque_id(),
+              DateTime.t(),
+              state
+            ) :: {:noreply, state}
 
   defmacro __using__(_) do
     quote do
@@ -142,6 +152,19 @@ defmodule Janus.Handler do
           ),
           do: {:noreply, state}
 
+      @impl true
+      def handle_plugin_event(
+            _session_id,
+            _plugin_handle_id,
+            _plugin,
+            _event_data,
+            _emitter,
+            _opaque_id,
+            _timestamp,
+            state
+          ),
+          do: {:noreply, state}
+
       defoverridable init: 1,
                      handle_created: 5,
                      handle_timeout: 2,
@@ -150,7 +173,8 @@ defmodule Janus.Handler do
                      handle_webrtc_up: 6,
                      handle_webrtc_down: 6,
                      handle_audio_receiving: 7,
-                     handle_video_receiving: 7
+                     handle_video_receiving: 7,
+                     handle_plugin_event: 8
     end
   end
 end
