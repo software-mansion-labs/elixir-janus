@@ -351,6 +351,54 @@ defmodule Janus.Connection do
     end
   end
 
+  defp handle_payload(
+         %{"janus" => "webrtcup", "session_id" => session_id, "sender" => sender},
+         state(handler_module: handler_module, handler_state: handler_state) = s
+       ) do
+    case handler_module.handle_webrtc_up(session_id, sender, nil, nil, nil, handler_state) do
+      {:noreply, new_handler_state} ->
+        {:ok, state(s, handler_state: new_handler_state)}
+    end
+  end
+
+  defp handle_payload(
+         %{
+           "janus" => "media",
+           "session_id" => session_id,
+           "sender" => sender,
+           "receiving" => receiving,
+           "type" => type
+         },
+         state(handler_module: handler_module, handler_state: handler_state) = s
+       ) do
+    {:noreply, new_handler_state} =
+      case type do
+        "audio" ->
+          handler_module.handle_audio_receiving(
+            session_id,
+            sender,
+            nil,
+            nil,
+            receiving,
+            nil,
+            handler_state
+          )
+
+        "video" ->
+          handler_module.handle_video_receiving(
+            session_id,
+            sender,
+            nil,
+            nil,
+            receiving,
+            nil,
+            handler_state
+          )
+      end
+
+    {:ok, state(s, handler_state: new_handler_state)}
+  end
+
   ########
   # Event Emitter payloads
   ########
