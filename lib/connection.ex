@@ -637,6 +637,54 @@ defmodule Janus.Connection do
     end
   end
 
+  defp handle_payload(
+         %{
+           "janus" => "hangup",
+           "reason" => reason,
+           "sender" => sender_handle_id,
+           "session_id" => session_id
+         },
+         state(handler_module: handler_module, handler_state: handler_state) = state
+       ) do
+    case handler_module.handle_webrtc_down(
+           session_id,
+           sender_handle_id,
+           reason,
+           nil,
+           nil,
+           nil,
+           handler_state
+         ) do
+      {:noreply, new_handler_state} ->
+        {:ok, state(state, handler_state: new_handler_state)}
+    end
+  end
+
+  defp handle_payload(
+         %{
+           "janus" => "slowlink",
+           "uplink" => uplink?,
+           "lost" => lost_packets,
+           "sender" => sender_handle_id,
+           "session_id" => session_id
+         },
+         state(handler_module: handler_module, handler_state: handler_state) = state
+       ) do
+    case handler_module.handle_slow_link(
+           session_id,
+           sender_handle_id,
+           if(uplink?, do: :from_janus, else: :to_janus),
+           lost_packets,
+           nil,
+           nil,
+           nil,
+           handler_state
+         ) do
+      {:noreply, new_handler_state} ->
+        {:ok, state(state, handler_state: new_handler_state)}
+    end
+  end
+
   # Catch-all
   defp handle_payload(payload, state) do
     "[#{__MODULE__} #{inspect(self())}] Received unhandled payload: payload = #{inspect(payload)}"

@@ -40,6 +40,17 @@ defmodule Janus.Handler do
   @callback handle_webrtc_down(
               Session.session_id_t(),
               Session.plugin_handle_id(),
+              reason :: String.t(),
+              emitter(),
+              opaque_id(),
+              DateTime.t(),
+              state
+            ) :: {:noreply, state}
+  @callback handle_slow_link(
+              Session.session_id_t(),
+              Session.plugin_handle_id(),
+              direction :: :to_janus | :from_janus,
+              lost_packets :: non_neg_integer(),
               emitter(),
               opaque_id(),
               DateTime.t(),
@@ -121,6 +132,20 @@ defmodule Janus.Handler do
       def handle_webrtc_down(
             _session_id,
             _plugin_handle_id,
+            _reason,
+            _emitter,
+            _opaque_id,
+            _timestamp,
+            state
+          ),
+          do: {:noreply, state}
+
+      @impl true
+      def handle_slow_link(
+            _session_id,
+            _plugin_handle_id,
+            _direction,
+            _lost_packets,
             _emitter,
             _opaque_id,
             _timestamp,
@@ -171,7 +196,8 @@ defmodule Janus.Handler do
                      handle_attached: 7,
                      handle_detached: 3,
                      handle_webrtc_up: 6,
-                     handle_webrtc_down: 6,
+                     handle_webrtc_down: 7,
+                     handle_slow_link: 8,
                      handle_audio_receiving: 7,
                      handle_video_receiving: 7,
                      handle_plugin_event: 8
