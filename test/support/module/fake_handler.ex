@@ -14,7 +14,7 @@ defmodule Janus.Support.FakeHandler do
     @receiving true
     @transaction "transaction_XXX"
 
-    def created() do
+    def created(0) do
       %{
         "emitter" => @emitter,
         "event" => %{"name" => "created", "transport" => %{}},
@@ -24,7 +24,7 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def attached() do
+    def attached(0) do
       %{
         "emitter" => @emitter,
         "event" => %{"name" => "attached", "opaque_id" => @opaque_id, "plugin" => @plugin},
@@ -36,7 +36,7 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def webrtc_up() do
+    def webrtc_up(0) do
       %{
         "emitter" => @emitter,
         "event" => %{"connection" => "webrtcup"},
@@ -49,7 +49,57 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def audio_receiving() do
+    def webrtc_up(1) do
+      %{
+        "janus" => "webrtcup",
+        "sender" => @plugin_handle_id,
+        "session_id" => @session_id
+      }
+    end
+
+    # FIXME: Tests for variants not coming via event emitter
+
+    def webrtc_down(0) do
+      %{
+        "janus" => "hangup",
+        "reason" => "DTLS alert",
+        "sender" => @plugin_handle_id,
+        "session_id" => @session_id
+      }
+    end
+
+    def webrtc_down(1) do
+      %{
+        "janus" => "hangup",
+        "reason" => "Close PC",
+        "sender" => @plugin_handle_id,
+        "session_id" => @session_id
+      }
+    end
+
+    def slow_link(0) do
+      %{
+        "janus" => "slowlink",
+        "lost" => 4,
+        "media" => "video",
+        "sender" => @plugin_handle_id,
+        "session_id" => @session_id,
+        "uplink" => true
+      }
+    end
+
+    def slow_link(1) do
+      %{
+        "janus" => "slowlink",
+        "lost" => 68,
+        "media" => "audio",
+        "sender" => @plugin_handle_id,
+        "session_id" => @session_id,
+        "uplink" => true
+      }
+    end
+
+    def audio_receiving(0) do
       %{
         "emitter" => @emitter,
         "event" => %{"media" => "audio", "receiving" => @receiving},
@@ -62,7 +112,7 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def video_receiving() do
+    def video_receiving(0) do
       %{
         "emitter" => @emitter,
         "event" => %{"media" => "video", "receiving" => @receiving},
@@ -75,7 +125,7 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def timeout() do
+    def timeout(0) do
       %{
         "janus" => "timeout",
         "session_id" => @session_id,
@@ -83,7 +133,7 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
-    def detached() do
+    def detached(0) do
       %{"janus" => "detached", "session_id" => @session_id, "sender" => @plugin_handle_id}
     end
   end
@@ -129,12 +179,26 @@ defmodule Janus.Support.FakeHandler do
   def handle_webrtc_down(
         _session_id,
         _plugin_handle_id,
+        _reason,
         _emitter,
         _opaque_id,
         _timestamp,
         state
       ),
       do: {:noreply, %{state | callback: :handle_webrtc_down}}
+
+  @impl true
+  def handle_slow_link(
+        _session_id,
+        _plugin_handle_id,
+        _direction,
+        _lost_packets,
+        _emitter,
+        _opaque_id,
+        _timestamp,
+        state
+      ),
+      do: {:noreply, %{state | callback: :handle_slow_link}}
 
   @impl true
   def handle_audio_receiving(

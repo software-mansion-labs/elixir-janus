@@ -55,7 +55,12 @@ defmodule Janus.ConnectionTest do
     # check if all callbacks are called for their respective events
     test_callback(:created)
     test_callback(:attached)
-    test_callback(:webrtc_up)
+    test_callback(:webrtc_up, 0)
+    test_callback(:webrtc_up, 1)
+    test_callback(:webrtc_down, 0)
+    test_callback(:webrtc_down, 1)
+    test_callback(:slow_link, 0)
+    test_callback(:slow_link, 1)
     test_callback(:audio_receiving)
     test_callback(:video_receiving)
     test_callback(:timeout)
