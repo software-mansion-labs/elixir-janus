@@ -16,9 +16,9 @@ defmodule Janus.MockSession do
         _from,
         %{pairs: pairs} = state
       ) do
-    response = get_response(message, pairs)
+    {response, pairs} = get_response(message, pairs)
 
-    {:reply, response, state}
+    {:reply, {:ok, response}, %{state | pairs: pairs}}
   end
 
   def handle_call(:get_session_id, _from, state) do
