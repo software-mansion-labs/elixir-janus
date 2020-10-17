@@ -1,6 +1,10 @@
 defmodule Janus.MockSession do
   use GenServer
 
+  def start_link(pairs) when is_list(pairs) do
+    GenServer.start_link(__MODULE__, pairs)
+  end
+
   @impl true
   def init(pairs) do
     {:ok, %{pairs: pairs}}
@@ -17,8 +21,8 @@ defmodule Janus.MockSession do
     {:reply, response, state}
   end
 
-  def handle_call(:get_session_id, _from, %{session_id: session_id} = state) do
-    {:reply, session_id, state}
+  def handle_call(:get_session_id, _from, state) do
+    {:reply, 1_112_477_820, state}
   end
 
   @impl true
