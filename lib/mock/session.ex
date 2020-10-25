@@ -1,4 +1,4 @@
-defmodule Janus.MockSession do
+defmodule Janus.Mock.Session do
   @moduledoc """
   Provides a way to prop reponses from `Janus.Session` module.
 
@@ -16,8 +16,9 @@ defmodule Janus.MockSession do
   """
   use GenServer
 
-  @spec start_link([Janus.MockTransport.request_response_pair()]) :: GenServer.on_start()
+  @spec start_link([Janus.Mock.request_response_pair()]) :: GenServer.on_start()
   def start_link(pairs) when is_list(pairs) do
+    Janus.Mock.assert_pairs_shape(pairs)
     GenServer.start_link(__MODULE__, pairs)
   end
 

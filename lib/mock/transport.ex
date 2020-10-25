@@ -1,4 +1,4 @@
-defmodule Janus.MockTransport do
+defmodule Janus.Mock.Transport do
   @moduledoc """
   Allows to mock transport module in a predictable way.
 
@@ -31,7 +31,7 @@ defmodule Janus.MockTransport do
 
   def test() do
     {:ok, conn} = Connection.start_link(
-      Janus.MockTransport,
+      Janus.Mock.Transport,
       @request_response_pairs,
       Handler,
       {}
@@ -49,24 +49,15 @@ defmodule Janus.MockTransport do
 
   To mock `c:keepalive_interval/0` callback one has to set proper config variable.
   ```elixir
-  config :elixir_janus, Janus.MockTransport, keepalive_interval: 100
+  config :elixir_janus, Janus.Mock.Transport, keepalive_interval: 100
   ```
   """
 
   @behaviour Janus.Transport
 
-  require Record
-
-  @typedoc """
-  Tuple element containing request and response maps.
-
-  Response map should be compatible with formats handled by `Janus.Connection`, otherwise
-  it will not be handled by mentioned module and will crash `Janus.Connection` process.
-  """
-  @type request_response_pair :: {request :: map(), response :: map()}
-
   @impl true
   def connect(pairs) do
+    Janus.Mock.assert_pairs_shape(pairs)
     {:ok, %{pairs: pairs}}
   end
 
@@ -74,7 +65,7 @@ defmodule Janus.MockTransport do
   def send(payload, _timeout, %{pairs: pairs} = state) do
     {transaction, payload} = Map.pop(payload, :transaction)
 
-    {response, pairs} = get_response(payload, pairs)
+    {response, pairs} = Janus.Mock.get_response(payload, pairs)
 
     response =
       if not is_nil(transaction) do
@@ -98,19 +89,6 @@ defmodule Janus.MockTransport do
     case Application.get_env(:elixir_janus, __MODULE__, nil) do
       nil -> nil
       [keepalive_interval: interval] -> interval
-    end
-  end
-
-  defp get_response(payload, pairs) do
-    case List.keytake(pairs, payload, 0) do
-      nil ->
-        raise ArgumentError,
-              "#{inspect(__MODULE__)}: payload's corresponding response has not been found, got: #{
-                inspect(payload)
-              }"
-
-      {{_, response}, pairs} ->
-        {response, pairs}
     end
   end
 end

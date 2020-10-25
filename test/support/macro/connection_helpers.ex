@@ -19,13 +19,13 @@ defmodule Janus.Support.Macro do
     quote do
       test "#{inspect(unquote(fun))} callback with payload nr #{unquote(index)}" do
         alias Janus.Connection
-        alias Janus.MockTransport
+        alias Janus.Mock
         alias Janus.Support.FakeHandler
         alias Janus.Support.FakeHandler.Payloads
 
         state =
           state(
-            transport_module: MockTransport,
+            transport_module: Mock.Transport,
             handler_module: FakeHandler,
             handler_state: %{callback: nil}
           )
