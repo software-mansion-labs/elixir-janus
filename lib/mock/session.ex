@@ -1,6 +1,6 @@
 defmodule Janus.Mock.Session do
   @moduledoc """
-  Provides a way to prop reponses from `Janus.Session` module.
+  Provides a way to mock reponses from `Janus.Session` module.
 
   ## Example
   ```

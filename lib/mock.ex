@@ -14,7 +14,7 @@ defmodule Janus.Mock do
     Enum.each(pairs, fn pair ->
       if !match?({request, response} when is_map(request) and is_map(response), pair) do
         raise ArgumentError,
-              "Expected a pair in list to be a tuple with two maps. Got #{pair} instead."
+              "Expected a pair in list to be a tuple with two maps. Got #{inspect(pair)} instead."
       end
     end)
   end
