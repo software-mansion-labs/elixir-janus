@@ -43,7 +43,7 @@ defmodule Janus.Mock.Session do
         _from,
         %{pairs: pairs} = state
       ) do
-    {response, pairs} = get_response(message, pairs)
+    {response, pairs} = Janus.Mock.get_response(message, pairs)
 
     {:reply, {:ok, response}, %{state | pairs: pairs}}
   end
@@ -59,18 +59,5 @@ defmodule Janus.Mock.Session do
   @impl true
   def handle_info(:keep_alive, state) do
     {:noreply, state}
-  end
-
-  defp get_response(payload, pairs) do
-    case List.keytake(pairs, payload, 0) do
-      nil ->
-        raise ArgumentError,
-              "#{inspect(__MODULE__)}: payload's corresponding response has not been found, got: #{
-                inspect(payload)
-              }"
-
-      {{_, response}, pairs} ->
-        {response, pairs}
-    end
   end
 end
