@@ -37,6 +37,7 @@ defmodule Elixir.Janus.MixProject do
     [
       {:bunch, "~> 1.3"},
       {:ex2ms, "~> 1.0"},
+      {:connection, "~> 1.1.0"},
 
       # Dev deps
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},

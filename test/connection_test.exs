@@ -27,19 +27,6 @@ defmodule Janus.ConnectionTest do
     time_zone: "Etc/UTC"
   }
 
-  setup do
-    table = Transaction.init_transaction_call_table(__MODULE__)
-    stub(DateTimeMock, :utc_now, fn -> @now end)
-
-    state =
-      state(
-        pending_calls_table: table,
-        transport_module: MockTransport
-      )
-
-    [table: table, state: state]
-  end
-
   setup_all do
     conn_args = %{
       transport_module: MockTransport,
@@ -49,6 +36,22 @@ defmodule Janus.ConnectionTest do
     }
 
     [conn_args: conn_args]
+  end
+
+  setup %{conn_args: conn_args} do
+    table = Transaction.init_transaction_call_table(__MODULE__)
+    stub(DateTimeMock, :utc_now, fn -> @now end)
+
+    state =
+      state(
+        pending_calls_table: table,
+        transport_module: conn_args.transport_module,
+        transport_args: conn_args.transport_args,
+        handler_module: conn_args.handler_module,
+        handler_args: conn_args.handler_args
+      )
+
+    [table: table, state: state]
   end
 
   describe "Connection should call handler's" do
@@ -130,31 +133,40 @@ defmodule Janus.ConnectionTest do
   end
 
   describe "init should" do
-    test "fail if transport's connect fails", %{conn_args: conn_args} do
-      conn_args = %{conn_args | transport_module: BrokenTransport}
-      assert {:stop, {:connect, "transport"}} = Connection.init(conn_args)
+    test "initialize state", %{conn_args: conn_args, state: state} do
+      state = state(state, cleanup_interval: 60000, pending_calls_table: nil)
+      assert {:connect, :init, state} == Connection.init(conn_args)
     end
+  end
 
-    test "fail if handler's init fails", %{conn_args: conn_args} do
-      conn_args = %{conn_args | handler_module: BrokenHandler}
-      assert {:stop, {:handler, "handler"}} = Connection.init(conn_args)
-    end
-
-    test "initialize state", %{conn_args: conn_args} do
-      cleanup_interval = 0
-      conn_args = Map.put(conn_args, :cleanup_interval, cleanup_interval)
+  describe "connect should" do
+    test "return an ok if connection was established successfully", %{state: state} do
+      state = state(state, cleanup_interval: 0)
 
       assert {:ok,
               state(
-                transport_module: MockTransport,
-                transport_state: %{pairs: ''},
-                handler_module: ValidHandler,
-                handler_state: {},
+                handler_state: handler_state,
+                transport_state: transport_state,
                 pending_calls_table: table
-              )} = Connection.init(conn_args)
+              )} = Connection.connect(:init, state)
+
+      assert handler_state == {}
+      assert transport_state == %{pairs: []}
 
       assert_receive :cleanup, @receive_timeout
       assert table in :ets.all()
+    end
+
+    test "fail if transport's connect fails", %{state: state} do
+      state = state(state, transport_module: BrokenTransport)
+
+      assert {:backoff, 1000, state} ==
+               Connection.connect(:init, state)
+    end
+
+    test "fail if handler's init fails", %{state: state} do
+      state = state(state, handler_module: BrokenHandler)
+      assert {:stop, {:handler, "handler"}} = Connection.connect(:init, state)
     end
   end
 
