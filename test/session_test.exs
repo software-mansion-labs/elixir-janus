@@ -69,7 +69,7 @@ defmodule Janus.SessionTest do
     stub(DateTimeMock, :utc_now, &DateTime.utc_now/0)
 
     {:ok, connection} =
-      Connection.start(Janus.MockTransport, @request_response_pairs, FakeHandler, {})
+      Connection.start(Janus.Mock.Transport, @request_response_pairs, FakeHandler, {})
 
     on_exit(fn -> Process.exit(connection, :kill) end)
 
@@ -115,11 +115,11 @@ defmodule Janus.SessionTest do
          %{
            connection: conn
          } do
-      Application.put_env(:elixir_janus, Janus.MockTransport, keepalive_interval: 100)
+      Application.put_env(:elixir_janus, Janus.Mock.Transport, keepalive_interval: 100)
 
       {:ok, _session} = Session.start_link(conn, @timeout)
 
-      interval = Janus.MockTransport.keepalive_interval()
+      interval = Janus.Mock.Transport.keepalive_interval()
       :erlang.trace(conn, true, [:receive])
 
       assert_receive {:trace, ^conn, :receive, %{"janus" => "ack"}}, 2 * interval

@@ -1,7 +1,7 @@
 defmodule Janus.API.MonitorTest do
   use ExUnit.Case, async: false
   alias Janus.Connection
-  alias Janus.MockTransport
+  alias Janus.Mock
   alias Janus.API.Monitor
   import Mox
 
@@ -97,7 +97,7 @@ defmodule Janus.API.MonitorTest do
     stub(DateTimeMock, :utc_now, &DateTime.utc_now/0)
 
     {:ok, connection} =
-      Connection.start_link(MockTransport, @request_result_pairs, DummyHandler, {})
+      Connection.start_link(Mock.Transport, @request_result_pairs, DummyHandler, {})
 
     %{connection: connection}
   end
@@ -120,7 +120,7 @@ defmodule Janus.API.MonitorTest do
 
     test "handle errors returned by connection" do
       {:ok, connection} =
-        Connection.start_link(MockTransport, @error_request_result_pairs, DummyHandler, {})
+        Connection.start_link(Mock.Transport, @error_request_result_pairs, DummyHandler, {})
 
       assert {:error, _error} = Monitor.list_sessions(connection, @secret)
       assert {:error, _error} = Monitor.list_handles(connection, @session_id, @secret)

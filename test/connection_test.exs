@@ -2,7 +2,7 @@ defmodule Janus.ConnectionTest do
   use ExUnit.Case, async: true
   alias Janus.Connection
   alias Janus.Connection.Transaction
-  alias Janus.MockTransport
+  alias Janus.Mock.Transport, as: MockTransport
   alias Janus.Support.{ValidHandler, BrokenHandler, BrokenTransport}
 
   import Janus.Connection

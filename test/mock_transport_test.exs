@@ -1,7 +1,7 @@
-defmodule Janus.MockTransportTest do
+defmodule Janus.Mock.TransportTest do
   use ExUnit.Case
 
-  alias Janus.MockTransport
+  alias Janus.Mock.Transport, as: MockTransport
 
   @request_response_pairs [
     {
@@ -31,7 +31,7 @@ defmodule Janus.MockTransportTest do
     }
   ]
 
-  describe "MockTransport should" do
+  describe "Mock.Transport should" do
     test "save request-result pairs in state" do
       assert {:ok, %{pairs: @request_response_pairs}} =
                MockTransport.connect(@request_response_pairs)

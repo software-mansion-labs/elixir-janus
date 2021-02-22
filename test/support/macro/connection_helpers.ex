@@ -19,7 +19,7 @@ defmodule Janus.Support.Macro do
     quote do
       test "#{inspect(unquote(fun))} callback with payload nr #{unquote(index)}" do
         alias Janus.Connection
-        alias Janus.MockTransport
+        alias Janus.Mock.Transport, as: MockTransport
         alias Janus.Support.FakeHandler
         alias Janus.Support.FakeHandler.Payloads
 
