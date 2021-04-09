@@ -175,6 +175,10 @@ defmodule Janus.Session do
     {:noreply, state}
   end
 
+  def handle_info({:EXIT, _sender, reason}, state) do
+    {:stop, reason, state}
+  end
+
   def handle_info({:DOWN, _ref, :process, object, reason}, %{connection: conn} = state)
       when object == conn do
     {:stop, {:connection, reason}, %{state | connection: nil}}
