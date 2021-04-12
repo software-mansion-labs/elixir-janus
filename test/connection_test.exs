@@ -62,7 +62,8 @@ defmodule Janus.ConnectionTest do
     test_callback(:slow_link, 0)
     test_callback(:slow_link, 1)
     test_callback(:audio_receiving)
-    test_callback(:video_receiving)
+    test_callback(:video_receiving, 0)
+    test_callback(:video_receiving, 1)
     test_callback(:timeout)
   end
 

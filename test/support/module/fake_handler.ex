@@ -125,6 +125,17 @@ defmodule Janus.Support.FakeHandler do
       }
     end
 
+    def video_receiving(1) do
+      %{
+        "janus" => "media",
+        "session_id" => @session_id,
+        "sender" => @plugin_handle_id,
+        "type" => "video",
+        "receiving" => @receiving,
+        "substream" => 1
+      }
+    end
+
     def timeout(0) do
       %{
         "janus" => "timeout",
@@ -201,6 +212,7 @@ defmodule Janus.Support.FakeHandler do
         _session_id,
         _plugin_handle_id,
         _receiving,
+        _substream,
         _meta,
         state
       ),

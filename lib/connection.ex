@@ -368,7 +368,7 @@ defmodule Janus.Connection do
            "sender" => sender,
            "receiving" => receiving,
            "type" => type
-         },
+         } = payload,
          state(handler_module: handler_module, handler_state: handler_state) = s
        ) do
     {:noreply, new_handler_state} =
@@ -383,10 +383,14 @@ defmodule Janus.Connection do
           )
 
         "video" ->
+          # May be `nil` if not using Simulcast or Janus is older than 0.11.1
+          substream = payload["substream"]
+
           handler_module.handle_video_receiving(
             session_id,
             sender,
             receiving,
+            substream,
             %{},
             handler_state
           )
@@ -516,7 +520,7 @@ defmodule Janus.Connection do
   defp handle_payload(
          %{
            "emitter" => emitter,
-           "event" => %{"media" => "video", "receiving" => receiving},
+           "event" => %{"media" => "video", "receiving" => receiving} = event,
            "handle_id" => plugin_handle_id,
            "opaque_id" => opaque_id,
            "session_id" => session_id,
@@ -526,10 +530,14 @@ defmodule Janus.Connection do
          },
          state(handler_module: handler_module, handler_state: handler_state) = s
        ) do
+    # May be `nil` if not using Simulcast or Janus is older than 0.11.1
+    substream = event["substream"]
+
     case handler_module.handle_video_receiving(
            session_id,
            plugin_handle_id,
            receiving,
+           substream,
            %{
              emitter: emitter,
              opaque_id: opaque_id,

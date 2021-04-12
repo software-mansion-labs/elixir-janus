@@ -63,7 +63,8 @@ defmodule Janus.Handler do
   @callback handle_video_receiving(
               Session.session_id_t(),
               Session.plugin_handle_id(),
-              boolean,
+              receiving? :: boolean(),
+              substream :: integer() | nil,
               event_meta(),
               state
             ) :: {:noreply, state}
@@ -145,6 +146,7 @@ defmodule Janus.Handler do
             _session_id,
             _plugin_handle_id,
             _receiving,
+            _substream,
             _meta,
             state
           ),
@@ -170,7 +172,7 @@ defmodule Janus.Handler do
                      handle_webrtc_down: 5,
                      handle_slow_link: 6,
                      handle_audio_receiving: 5,
-                     handle_video_receiving: 5,
+                     handle_video_receiving: 6,
                      handle_plugin_event: 6
     end
   end
