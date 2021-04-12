@@ -145,20 +145,12 @@ defmodule Janus.Support.FakeHandler do
   def handle_timeout(_session_id, state), do: {:noreply, %{state | callback: :handle_timeout}}
 
   @impl true
-  def handle_created(_session_id, _transport, _emitter, _timestamp, state),
+  def handle_created(_session_id, _transport, _meta, state),
     do: {:noreply, %{state | callback: :handle_created}}
 
   @impl true
-  def handle_attached(
-        _session_id,
-        _plugin,
-        _plugin_handle_id,
-        _emitter,
-        _opaque_id,
-        _timestamp,
-        state
-      ),
-      do: {:noreply, %{state | callback: :handle_attached}}
+  def handle_attached(_session_id, _plugin, _plugin_handle_id, _meta, state),
+    do: {:noreply, %{state | callback: :handle_attached}}
 
   @impl true
   def handle_detached(_session_id, _plugin_handle_id, state),
@@ -168,9 +160,7 @@ defmodule Janus.Support.FakeHandler do
   def handle_webrtc_up(
         _session_id,
         _plugin_handle_id,
-        _emitter,
-        _opaque_id,
-        _timestamp,
+        _meta,
         state
       ),
       do: {:noreply, %{state | callback: :handle_webrtc_up}}
@@ -180,9 +170,7 @@ defmodule Janus.Support.FakeHandler do
         _session_id,
         _plugin_handle_id,
         _reason,
-        _emitter,
-        _opaque_id,
-        _timestamp,
+        _meta,
         state
       ),
       do: {:noreply, %{state | callback: :handle_webrtc_down}}
@@ -193,9 +181,7 @@ defmodule Janus.Support.FakeHandler do
         _plugin_handle_id,
         _direction,
         _lost_packets,
-        _emitter,
-        _opaque_id,
-        _timestamp,
+        _meta,
         state
       ),
       do: {:noreply, %{state | callback: :handle_slow_link}}
@@ -204,10 +190,8 @@ defmodule Janus.Support.FakeHandler do
   def handle_audio_receiving(
         _session_id,
         _plugin_handle_id,
-        _emitter,
-        _opaque_id,
         _receiving,
-        _timestamp,
+        _meta,
         state
       ),
       do: {:noreply, %{state | callback: :handle_audio_receiving}}
@@ -216,10 +200,8 @@ defmodule Janus.Support.FakeHandler do
   def handle_video_receiving(
         _session_id,
         _plugin_handle_id,
-        _emitter,
-        _opaque_id,
         _receiving,
-        _timestamp,
+        _meta,
         state
       ),
       do: {:noreply, %{state | callback: :handle_video_receiving}}

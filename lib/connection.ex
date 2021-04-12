@@ -355,7 +355,7 @@ defmodule Janus.Connection do
          %{"janus" => "webrtcup", "session_id" => session_id, "sender" => sender},
          state(handler_module: handler_module, handler_state: handler_state) = s
        ) do
-    case handler_module.handle_webrtc_up(session_id, sender, nil, nil, nil, handler_state) do
+    case handler_module.handle_webrtc_up(session_id, sender, %{}, handler_state) do
       {:noreply, new_handler_state} ->
         {:ok, state(s, handler_state: new_handler_state)}
     end
@@ -377,10 +377,8 @@ defmodule Janus.Connection do
           handler_module.handle_audio_receiving(
             session_id,
             sender,
-            nil,
-            nil,
             receiving,
-            nil,
+            %{},
             handler_state
           )
 
@@ -388,10 +386,8 @@ defmodule Janus.Connection do
           handler_module.handle_video_receiving(
             session_id,
             sender,
-            nil,
-            nil,
             receiving,
-            nil,
+            %{},
             handler_state
           )
       end
@@ -417,8 +413,10 @@ defmodule Janus.Connection do
     case handler_module.handle_created(
            session_id,
            transport,
-           emitter,
-           DateTime.from_unix!(timestamp, :microsecond),
+           %{
+             emitter: emitter,
+             timestamp: DateTime.from_unix!(timestamp, :microsecond)
+           },
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -443,9 +441,11 @@ defmodule Janus.Connection do
            session_id,
            plugin,
            plugin_handle_id,
-           emitter,
-           opaque_id,
-           DateTime.from_unix!(timestamp, :microsecond),
+           %{
+             emitter: emitter,
+             opaque_id: opaque_id,
+             timestamp: DateTime.from_unix!(timestamp, :microsecond)
+           },
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -470,9 +470,11 @@ defmodule Janus.Connection do
     case handler_module.handle_webrtc_up(
            session_id,
            plugin_handle_id,
-           emitter,
-           opaque_id,
-           DateTime.from_unix!(timestamp, :microsecond),
+           %{
+             emitter: emitter,
+             opaque_id: opaque_id,
+             timestamp: DateTime.from_unix!(timestamp, :microsecond)
+           },
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -497,10 +499,12 @@ defmodule Janus.Connection do
     case handler_module.handle_audio_receiving(
            session_id,
            plugin_handle_id,
-           emitter,
-           opaque_id,
            receiving,
-           DateTime.from_unix!(timestamp, :microsecond),
+           %{
+             emitter: emitter,
+             opaque_id: opaque_id,
+             timestamp: DateTime.from_unix!(timestamp, :microsecond)
+           },
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -525,10 +529,12 @@ defmodule Janus.Connection do
     case handler_module.handle_video_receiving(
            session_id,
            plugin_handle_id,
-           emitter,
-           opaque_id,
            receiving,
-           DateTime.from_unix!(timestamp, :microsecond),
+           %{
+             emitter: emitter,
+             opaque_id: opaque_id,
+             timestamp: DateTime.from_unix!(timestamp, :microsecond)
+           },
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -650,9 +656,7 @@ defmodule Janus.Connection do
            session_id,
            sender_handle_id,
            reason,
-           nil,
-           nil,
-           nil,
+           %{},
            handler_state
          ) do
       {:noreply, new_handler_state} ->
@@ -675,9 +679,7 @@ defmodule Janus.Connection do
            sender_handle_id,
            if(uplink?, do: :from_janus, else: :to_janus),
            lost_packets,
-           nil,
-           nil,
-           nil,
+           %{},
            handler_state
          ) do
       {:noreply, new_handler_state} ->

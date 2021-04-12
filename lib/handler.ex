@@ -5,14 +5,19 @@ defmodule Janus.Handler do
   @type emitter :: String.t()
   @type transport :: map
 
+  @type event_meta :: %{
+          optional(:emitter) => emitter(),
+          optional(:timestamp) => DateTime.t(),
+          optional(:opaque_id) => opaque_id()
+        }
+
   @type state :: any
 
   @callback init(any) :: {:ok, state} | {:error, any}
   @callback handle_created(
               Session.session_id_t(),
               transport(),
-              emitter(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
@@ -21,9 +26,7 @@ defmodule Janus.Handler do
               Session.session_id_t(),
               Session.plugin_t(),
               Session.plugin_handle_id(),
-              emitter(),
-              opaque_id(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   # FIXME handle events
@@ -32,18 +35,14 @@ defmodule Janus.Handler do
   @callback handle_webrtc_up(
               Session.session_id_t(),
               Session.plugin_handle_id(),
-              emitter(),
-              opaque_id(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   @callback handle_webrtc_down(
               Session.session_id_t(),
               Session.plugin_handle_id(),
               reason :: String.t(),
-              emitter(),
-              opaque_id(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   @callback handle_slow_link(
@@ -51,27 +50,21 @@ defmodule Janus.Handler do
               Session.plugin_handle_id(),
               direction :: :to_janus | :from_janus,
               lost_packets :: non_neg_integer(),
-              emitter(),
-              opaque_id(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   @callback handle_audio_receiving(
               Session.session_id_t(),
               Session.plugin_handle_id(),
-              emitter(),
-              opaque_id(),
               boolean,
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   @callback handle_video_receiving(
               Session.session_id_t(),
               Session.plugin_handle_id(),
-              emitter(),
-              opaque_id(),
               boolean,
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
   @callback handle_plugin_event(
@@ -79,9 +72,7 @@ defmodule Janus.Handler do
               Session.plugin_handle_id(),
               plugin :: String.t(),
               event_data :: map(),
-              emitter(),
-              opaque_id(),
-              DateTime.t(),
+              event_meta(),
               state
             ) :: {:noreply, state}
 
@@ -98,20 +89,12 @@ defmodule Janus.Handler do
       def handle_timeout(_session_id, state), do: {:noreply, state}
 
       @impl true
-      def handle_created(_session_id, _transport, _emitter, _timestamp, state),
+      def handle_created(_session_id, _transport, _meta, state),
         do: {:noreply, state}
 
       @impl true
-      def handle_attached(
-            _session_id,
-            _plugin,
-            _plugin_handle_id,
-            _emitter,
-            _opaque_id,
-            _timestamp,
-            state
-          ),
-          do: {:noreply, state}
+      def handle_attached(_session_id, _plugin, _plugin_handle_id, _meta, state),
+        do: {:noreply, state}
 
       # FIXME handle events
       @impl true
@@ -121,9 +104,7 @@ defmodule Janus.Handler do
       def handle_webrtc_up(
             _session_id,
             _plugin_handle_id,
-            _emitter,
-            _opaque_id,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
@@ -133,9 +114,7 @@ defmodule Janus.Handler do
             _session_id,
             _plugin_handle_id,
             _reason,
-            _emitter,
-            _opaque_id,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
@@ -146,9 +125,7 @@ defmodule Janus.Handler do
             _plugin_handle_id,
             _direction,
             _lost_packets,
-            _emitter,
-            _opaque_id,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
@@ -157,10 +134,8 @@ defmodule Janus.Handler do
       def handle_audio_receiving(
             _session_id,
             _plugin_handle_id,
-            _emitter,
-            _opaque_id,
             _receiving,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
@@ -169,10 +144,8 @@ defmodule Janus.Handler do
       def handle_video_receiving(
             _session_id,
             _plugin_handle_id,
-            _emitter,
-            _opaque_id,
             _receiving,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
@@ -183,24 +156,22 @@ defmodule Janus.Handler do
             _plugin_handle_id,
             _plugin,
             _event_data,
-            _emitter,
-            _opaque_id,
-            _timestamp,
+            _meta,
             state
           ),
           do: {:noreply, state}
 
       defoverridable init: 1,
-                     handle_created: 5,
+                     handle_created: 4,
                      handle_timeout: 2,
-                     handle_attached: 7,
+                     handle_attached: 5,
                      handle_detached: 3,
-                     handle_webrtc_up: 6,
-                     handle_webrtc_down: 7,
-                     handle_slow_link: 8,
-                     handle_audio_receiving: 7,
-                     handle_video_receiving: 7,
-                     handle_plugin_event: 8
+                     handle_webrtc_up: 4,
+                     handle_webrtc_down: 5,
+                     handle_slow_link: 6,
+                     handle_audio_receiving: 5,
+                     handle_video_receiving: 5,
+                     handle_plugin_event: 6
     end
   end
 end
