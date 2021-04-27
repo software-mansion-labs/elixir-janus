@@ -641,9 +641,7 @@ defmodule Janus.Connection do
            sender_handle_id,
            plugin,
            data,
-           nil,
-           nil,
-           nil,
+           %{},
            handler_state
          ) do
       {:noreply, new_handler_state} ->
